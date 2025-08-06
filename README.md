@@ -1,25 +1,35 @@
 # Universal YouTube-style Video Hotkeys
 
-A browser extension that brings YouTube-style keyboard shortcuts to all video players across the web.
-1
+A browser extension that brings YouTube-style keyboard shortcuts to all video players across the web. Also enables double click-to-fullscreen, and removes custom video controls.
+
+This is the only browser extension of its kind that actually works, and it works *everywhere*.
+
+Also disables all custom video controls (can be toggled).
+
 ## Features
 
 - **Smart video detection**: Automatically targets the most relevant video in viewport
 - **Universal shortcuts**: Works on any website with HTML5 videos, including iframes and deeply nested shadow doms
 - **YouTube-compatible hotkeys**: Uses the same shortcuts you're already familiar with. Not configurable.
+- **Double-click fullscreen**: Click video twice to toggle fullscreen mode
+- **Native controls**: Overrides custom video controls to show browser's native controls
+- **Sound enhancement**: Optional setting to always unmute and maximize volume on video change
 - **Lightweight**: Pure JavaScript, no dependencies, no bundling
 
 ## Keyboard Shortcuts
 
 | Key | Action |
 |-----|--------|
+| `Space` | Play/pause video |
 | `←` / `→` | Seek backward/forward 5 seconds |
+| `↑` / `↓` | Volume up/down 5% (when video focused or fullscreen) |
 | `Home` / `End` | Jump to start/end of video |
 | `0`-`9` | Jump to 0%-90% of video duration |
 | `F` | Toggle fullscreen |
 | `M` | Toggle mute |
 | `Shift + >` | Increase speed by 25% (max 3.00x) |
 | `Shift + <` | Decrease speed by 25% (min 0.25x) |
+| Double-click video | Toggle fullscreen |
 
 ## Installation & Development
 
@@ -45,8 +55,10 @@ A browser extension that brings YouTube-style keyboard shortcuts to all video pl
 
 ### Configuration
 
-- Click the extension icon in your browser toolbar to toggle the extension on/off
-- The popup also shows all available keyboard shortcuts
+- Click the extension icon in your browser toolbar to:
+  - Toggle the extension on/off
+  - Enable "Always enable sound" (unmutes and maximizes volume on video change)
+  - View all available keyboard shortcuts
 
 ## Code Quality
 

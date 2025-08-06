@@ -9,11 +9,53 @@
 let current_video = null
 /** @type {boolean} */
 let extension_enabled = true
+/** @type {boolean} */
+let always_enable_sound = false
 /** @type {MutationObserver | null} */
 let video_observer = null
+/** @type {HTMLDivElement | null} */
+let speed_indicator = null
 
 /** Log function with prefix @param {...any} args */
 let log = (...args) => console.log('[VideoHotkeys]', ...args)
+
+/** Create and show speed indicator overlay @param {number} speed */
+let show_speed_indicator = speed => {
+	if (!current_video) return
+
+	// Remove existing indicator
+	if (speed_indicator) speed_indicator.remove()
+
+	// Create new indicator
+	speed_indicator = document.createElement('div')
+	speed_indicator.textContent = `${speed.toFixed(2)}x`
+	speed_indicator.style.cssText = `
+		position: fixed;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		background: rgba(0, 0, 0, 0.8);
+		color: white;
+		padding: 8px 16px;
+		border-radius: 4px;
+		font-family: Arial, sans-serif;
+		font-size: 18px;
+		font-weight: bold;
+		z-index: 999999;
+		pointer-events: none;
+		user-select: none;
+	`
+
+	document.body.appendChild(speed_indicator)
+
+	// Auto-remove after 1 second
+	setTimeout(() => {
+		if (speed_indicator) {
+			speed_indicator.remove()
+			speed_indicator = null
+		}
+	}, 1000)
+}
 
 /** Recursively find all video elements including shadow DOM and iframes @param {Document | DocumentFragment | ShadowRoot} root @returns {HTMLVideoElement[]} */
 let find_all_videos = root => {
@@ -104,7 +146,43 @@ let update_current_video = () => {
 	if (video && video !== current_video?.element) {
 		log('Active video changed:', video.src || video.currentSrc || 'unknown source')
 		current_video = { element: video, last_interaction: Date.now() }
+
+		// Apply sound settings if enabled
+		if (always_enable_sound) {
+			video.muted = false
+			video.volume = 1.0
+			log('Force sound: unmuted and volume set to 100%')
+		}
+
+		// Add double-click listener for fullscreen
+		setup_double_click_fullscreen(video)
 	}
+}
+
+/** Setup double-click fullscreen for video @param {HTMLVideoElement} video */
+let setup_double_click_fullscreen = video => {
+	// Remove existing listener to avoid duplicates
+	video.removeEventListener('dblclick', handle_double_click)
+	video.addEventListener('dblclick', handle_double_click)
+}
+
+/** Handle double-click on video for fullscreen @param {Event} event */
+let handle_double_click = event => {
+	event.preventDefault()
+	event.stopPropagation()
+	toggle_fullscreen()
+	log('Double-click fullscreen triggered')
+}
+
+/** Change volume by percentage @param {number} delta - Volume change (-100 to 100) */
+let change_volume = delta => {
+	if (!current_video) return
+	let video = current_video.element
+	let old_volume = video.volume
+	let new_volume = Math.max(0, Math.min(1, video.volume + (delta / 100)))
+	video.volume = new_volume
+	video.muted = false // Unmute when changing volume
+	log(`Volume change: ${(old_volume * 100).toFixed(0)}% → ${(new_volume * 100).toFixed(0)}%`)
 }
 
 /** Seek video by seconds @param {number} seconds */
@@ -137,6 +215,9 @@ let change_speed = direction => {
 		: Math.max(0.25, current_rate - 0.25)
 	video.playbackRate = new_rate
 	log(`Speed change: ${current_rate.toFixed(2)}x → ${new_rate.toFixed(2)}x`)
+
+	// Show speed indicator overlay
+	show_speed_indicator(new_rate)
 }
 
 /** Toggle play/pause */
@@ -149,6 +230,8 @@ let toggle_play_pause = () => {
 	} else {
 		video.pause()
 		log('Pause')
+		// The current one may be way out of viewport by now
+		update_current_video()
 	}
 }
 
@@ -192,6 +275,22 @@ let handle_video_shortcuts = (event, video) => {
 		case 'ArrowRight':
 			seek_video(5)
 			return true
+		case 'ArrowUp':
+			// Volume up only if video has focus or is fullscreen
+			if (document.activeElement === video || document.fullscreenElement === video ||
+			/** @type {ExtendedDocument} */ (document).webkitFullscreenElement === video) {
+				change_volume(5)
+				return true
+			}
+			break
+		case 'ArrowDown':
+			// Volume down only if video has focus or is fullscreen
+			if (document.activeElement === video || document.fullscreenElement === video ||
+			/** @type {ExtendedDocument} */ (document).webkitFullscreenElement === video) {
+				change_volume(-5)
+				return true
+			}
+			break
 		case 'Home':
 			jump_to_percentage(0)
 			return true
@@ -248,29 +347,88 @@ let handle_keydown = event => {
 let setup_video_observer = () => {
 	if (video_observer) video_observer.disconnect()
 
-	video_observer = new MutationObserver(() => update_current_video())
-	video_observer.observe(document.body, {
-		childList: true,
-		subtree: true
+	video_observer = new MutationObserver(mutations => {
+		let should_update = false
+		try {
+			for (let mutation of mutations) {
+				// Check for new elements that might contain videos
+				if (mutation.type === 'childList') for (let node of mutation.addedNodes) if (node.nodeType === Node.ELEMENT_NODE) {
+					let element = /** @type {Element} */ (node)
+					// Check if it's a video, contains videos, has shadow DOM, is an iframe, object, or embed
+					if (
+						element.tagName === 'VIDEO' ||
+						element.querySelector('video') ||
+						element.shadowRoot ||
+						element.tagName === 'IFRAME' ||
+						element.tagName === 'OBJECT' ||
+						element.tagName === 'EMBED'
+					) {
+						should_update = true
+						break
+					}
+				}
+				if (should_update) break
+			}
+		} catch (/** @type {any} */ e) {
+			log('MutationObserver error:', String(e.message || e))
+			should_update = true // Update anyway in case of errors
+		}
+		if (should_update) update_current_video()
 	})
-	log('Video observer initialized')
+
+	try {
+		video_observer.observe(document.body, {
+			childList: true,
+			subtree: true
+		})
+		log('Aggressive video observer initialized')
+	} catch (/** @type {any} */ e) {
+		log('MutationObserver setup error:', String(e.message || e))
+	}
+}
+
+/** Initialize iframe content scripts for same-origin iframes */
+let setup_iframe_observers = () => {
+	let start_time = performance.now()
+	let iframes = document.querySelectorAll('iframe')
+	let success_count = 0
+
+	for (let iframe of iframes) try {
+		if (iframe.contentDocument && iframe.contentWindow) {
+			// Add keyboard listener to iframe
+			iframe.contentDocument.addEventListener('keydown', handle_keydown, true)
+			success_count++
+			log('Added keyboard listener to iframe:', iframe.src || 'about:blank')
+		}
+	} catch (/** @type {any} */ e) {
+		log('Iframe setup error (likely cross-origin):', iframe.src || 'about:blank', String(e.message || e))
+	}
+
+	let setup_time = performance.now() - start_time
+	if (setup_time > 10 || success_count > 0) log(`Iframe setup took ${setup_time.toFixed(1)}ms (${success_count}/${iframes.length} iframes accessible)`)
 }
 
 /** Initialize extension */
 let init = () => {
-	log('Initializing extension')
+	log('Initializing aggressive video detection (shadow DOM + iframes)')
 
 	// Load settings
-	chrome.storage.sync.get(['enabled'], result => {
+	chrome.storage.sync.get(['enabled', 'always_enable_sound'], result => {
 		if (chrome.runtime.lastError) {
 			log('Storage error:', chrome.runtime.lastError)
 			extension_enabled = true // Default to enabled on error
-		} else extension_enabled = result && result['enabled'] !== false
+			always_enable_sound = false
+		} else {
+			extension_enabled = result && result['enabled'] !== false
+			always_enable_sound = result && result['always_enable_sound'] === true
+		}
 		log('Extension enabled:', extension_enabled)
+		log('Always enable sound:', always_enable_sound)
 	})
 
-	// Setup modern video detection
+	// Setup modern video detection with shadow DOM and iframe support
 	setup_video_observer()
+	setup_iframe_observers()
 	update_current_video()
 
 	// Listen for keyboard events
@@ -281,6 +439,10 @@ let init = () => {
 		if (changes['enabled']) {
 			extension_enabled = changes['enabled'].newValue
 			log('Extension toggled:', extension_enabled ? 'enabled' : 'disabled')
+		}
+		if (changes['always_enable_sound']) {
+			always_enable_sound = changes['always_enable_sound'].newValue
+			log('Always enable sound toggled:', always_enable_sound ? 'enabled' : 'disabled')
 		}
 	})
 }
