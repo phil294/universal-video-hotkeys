@@ -1,11 +1,11 @@
-# Universal Video Hotkeys
+# Universal YouTube-style Video Hotkeys
 
 A browser extension that brings YouTube-style keyboard shortcuts to all video players across the web.
 
 ## Features
 
+- **Smart video detection**: Automatically targets the most relevant video in viewport
 - **Universal shortcuts**: Works on any website with HTML5 videos
-- **Smart video detection**: Automatically targets the currently playing video or the largest video in viewport
 - **YouTube-compatible hotkeys**: Uses the same shortcuts you're already familiar with. Not configurable.
 - **Lightweight**: Pure JavaScript, no dependencies, no bundling
 

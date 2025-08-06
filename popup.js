@@ -1,29 +1,33 @@
-/** @fileoverview Universal Video Hotkeys - Popup Script */
+/** @fileov// Handle checkbox changes
+checkbox.addEventListener('change', () => {
+	let enabled = checkbox.checked
+	chrome.storage.sync.set({enabled})
+	console.log('Extension', enabled ? 'enabled' : 'disabled')
+})Universal Video Hotkeys - Popup Script */
 
-/** @type {HTMLElement | null} */
-let enabled_toggle = document.getElementById('enabled_toggle')
+/** @type {HTMLInputElement | null} */
+let enabled_checkbox = /** @type {HTMLInputElement | null} */ (document.getElementById('enabled_toggle'))
 
-/** Update toggle appearance @param {boolean} enabled */
-let update_toggle = enabled => {
-	if (!enabled_toggle) return
-	if (enabled) enabled_toggle.classList.add('enabled')
-	else enabled_toggle.classList.remove('enabled')
+/** Update checkbox state @param {boolean} enabled */
+let update_checkbox = enabled => {
+	if (!enabled_checkbox) return
+	enabled_checkbox.checked = enabled
 }
 
-/** Toggle extension state */
-let toggle_extension = () => {
-	chrome.storage.sync.get(['enabled'], result => {
-		let new_state = !(result['enabled'] !== false)
-		chrome.storage.sync.set({ enabled: new_state })
-		update_toggle(new_state)
-	})
+/** Handle checkbox change */
+let handle_toggle_change = () => {
+	if (!enabled_checkbox) return
+	let new_state = enabled_checkbox.checked
+	chrome.storage.sync.set({ enabled: new_state })
+	console.log('Extension toggled:', new_state ? 'enabled' : 'disabled')
 }
 
 // Initialize popup
 chrome.storage.sync.get(['enabled'], result => {
-	let enabled = result['enabled'] !== false
-	update_toggle(enabled)
+	let enabled = result && result['enabled'] !== false
+	update_checkbox(enabled)
+	console.log('Popup initialized, extension is:', enabled ? 'enabled' : 'disabled')
 })
 
-// Add click listener
-if (enabled_toggle) enabled_toggle.addEventListener('click', toggle_extension)
+// Add change listener
+if (enabled_checkbox) enabled_checkbox.addEventListener('change', handle_toggle_change)

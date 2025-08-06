@@ -1,16 +1,19 @@
+/** @fileoverview Universal Video Hotkeys - Content Script @author GitHub Copilot */
+
 /** @typedef {Document & { webkitFullscreenElement?: Element | null; webkitExitFullscreen?: () => void; }} ExtendedDocument */
-
 /** @typedef {HTMLVideoElement & { webkitRequestFullscreen?: () => void; }} ExtendedVideoElement */
-
 /** @typedef {EventTarget & { tagName?: string; isContentEditable?: boolean; }} ExtendedEventTarget */
-
 /** @typedef {Object} VideoState @property {HTMLVideoElement} element @property {number} last_interaction */
 
 /** @type {VideoState | null} */
 let current_video = null
-
 /** @type {boolean} */
 let extension_enabled = true
+/** @type {MutationObserver | null} */
+let video_observer = null
+
+/** Log function with prefix @param {...any} args */
+let log = (...args) => console.log('[VideoHotkeys]', ...args)
 
 /** Get the most relevant video element @returns {HTMLVideoElement | null} */
 let get_current_video = () => {
@@ -40,51 +43,61 @@ let get_current_video = () => {
 	return in_viewport[0] ?? videos[0] ?? null
 }
 
-/**
- * Update current video reference
- */
+/** Update current video reference */
 let update_current_video = () => {
 	let video = get_current_video()
-	if (video && video !== current_video?.element) current_video = {
-		element: video,
-		last_interaction: Date.now()
+	if (video && video !== current_video?.element) {
+		log('Active video changed:', video.src || video.currentSrc || 'unknown source')
+		current_video = { element: video, last_interaction: Date.now() }
 	}
 }
 
-/**
- * Seek video by seconds
- * @param {number} seconds
- */
+/** Seek video by seconds @param {number} seconds */
 let seek_video = seconds => {
 	if (!current_video) return
 	let video = current_video.element
+	let old_time = video.currentTime
 	video.currentTime = Math.max(0, Math.min(video.duration || 0, video.currentTime + seconds))
+	log(`Seek ${seconds > 0 ? '+' : ''}${seconds}s: ${old_time.toFixed(1)}s → ${video.currentTime.toFixed(1)}s`)
 }
 
-/**
- * Jump to percentage of video
-+ * @param {number} percentage - 0 to 100
- */
+/** Jump to percentage of video @param {number} percentage - 0 to 100 */
 let jump_to_percentage = percentage => {
 	if (!current_video) return
 	let video = current_video.element
-	if (video.duration) video.currentTime = (percentage / 100) * video.duration
+	if (video.duration) {
+		let new_time = (percentage / 100) * video.duration
+		video.currentTime = new_time
+		log(`Jump to ${percentage}%: ${new_time.toFixed(1)}s`)
+	}
 }
 
-/**
- * Change playback speed
- * @param {number} multiplier
- */
-let change_speed = multiplier => {
+/** Change playback speed in fixed 25% steps @param {number} direction - 1 for faster, -1 for slower */
+let change_speed = direction => {
 	if (!current_video) return
 	let video = current_video.element
-	let new_rate = Math.max(0.25, Math.min(3.0, video.playbackRate * multiplier))
+	let current_rate = video.playbackRate
+	let new_rate = direction > 0
+		? Math.min(3.0, current_rate + 0.25)
+		: Math.max(0.25, current_rate - 0.25)
 	video.playbackRate = new_rate
+	log(`Speed change: ${current_rate.toFixed(2)}x → ${new_rate.toFixed(2)}x`)
 }
 
-/**
- * Toggle fullscreen
- */
+/** Toggle play/pause */
+let toggle_play_pause = () => {
+	if (!current_video) return
+	let video = current_video.element
+	if (video.paused) {
+		video.play()
+		log('Play')
+	} else {
+		video.pause()
+		log('Pause')
+	}
+}
+
+/** Toggle fullscreen */
 let toggle_fullscreen = () => {
 	if (!current_video) return
 	let video = /** @type {ExtendedVideoElement} */ (current_video.element)
@@ -93,16 +106,15 @@ let toggle_fullscreen = () => {
 	if (document.fullscreenElement || extended_document.webkitFullscreenElement) {
 		if (document.exitFullscreen) document.exitFullscreen()
 		else if (extended_document.webkitExitFullscreen) extended_document.webkitExitFullscreen()
-	} else
+		log('Exit fullscreen')
+	} else {
 		if (video.requestFullscreen) video.requestFullscreen()
 		else if (video.webkitRequestFullscreen) video.webkitRequestFullscreen()
+		log('Enter fullscreen')
+	}
 }
 
-/**
- * Check if event target is an input element
- * @param {Event} event
- * @returns {boolean}
- */
+/** Check if event target is an input element @param {Event} event @returns {boolean} */
 let is_input_target = event => {
 	let target = /** @type {ExtendedEventTarget | null} */ (event.target)
 	if (!target) return false
@@ -113,14 +125,12 @@ let is_input_target = event => {
 	return Boolean(target.isContentEditable)
 }
 
-/**
- * Handle video navigation shortcuts
- * @param {KeyboardEvent} event
- * @param {HTMLVideoElement} video
- * @returns {boolean} - Whether the event was handled
- */
+/** Handle video navigation shortcuts @param {KeyboardEvent} event @param {HTMLVideoElement} video @returns {boolean} - Whether the event was handled */
 let handle_video_shortcuts = (event, video) => {
 	switch (event.code) {
+		case 'Space':
+			toggle_play_pause()
+			return true
 		case 'ArrowLeft':
 			seek_video(-5)
 			return true
@@ -138,29 +148,22 @@ let handle_video_shortcuts = (event, video) => {
 			return true
 		case 'KeyM':
 			video.muted = !video.muted
+			log('Mute toggled:', video.muted ? 'muted' : 'unmuted')
 			return true
 		case 'Period':
 			if (event.shiftKey) {
-				change_speed(1.25)
+				change_speed(1)
 				return true
 			}
 			break
 		case 'Comma':
 			if (event.shiftKey) {
-				change_speed(0.8)
+				change_speed(-1)
 				return true
 			}
 			break
-		case 'Digit0':
-		case 'Digit1':
-		case 'Digit2':
-		case 'Digit3':
-		case 'Digit4':
-		case 'Digit5':
-		case 'Digit6':
-		case 'Digit7':
-		case 'Digit8':
-		case 'Digit9': {
+		case 'Digit0': case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4':
+		case 'Digit5': case 'Digit6': case 'Digit7': case 'Digit8': case 'Digit9': {
 			let digit = parseInt(event.code.slice(-1), 10)
 			jump_to_percentage(digit * 10)
 			return true
@@ -169,10 +172,7 @@ let handle_video_shortcuts = (event, video) => {
 	return false
 }
 
-/**
- * Handle keyboard events
- * @param {KeyboardEvent} event
- */
+/** Handle keyboard events @param {KeyboardEvent} event */
 let handle_keydown = event => {
 	if (!extension_enabled || !current_video) return
 
@@ -189,17 +189,33 @@ let handle_keydown = event => {
 	}
 }
 
-/**
- * Initialize extension
- */
+/** Setup video observer using modern MutationObserver */
+let setup_video_observer = () => {
+	if (video_observer) video_observer.disconnect()
+
+	video_observer = new MutationObserver(() => update_current_video())
+	video_observer.observe(document.body, {
+		childList: true,
+		subtree: true
+	})
+	log('Video observer initialized')
+}
+
+/** Initialize extension */
 let init = () => {
+	log('Initializing extension')
+
 	// Load settings
 	chrome.storage.sync.get(['enabled'], result => {
-		extension_enabled = result['enabled'] !== false
+		if (chrome.runtime.lastError) {
+			log('Storage error:', chrome.runtime.lastError)
+			extension_enabled = true // Default to enabled on error
+		} else extension_enabled = result && result['enabled'] !== false
+		log('Extension enabled:', extension_enabled)
 	})
 
-	// Update video reference periodically
-	setInterval(update_current_video, 1000)
+	// Setup modern video detection
+	setup_video_observer()
 	update_current_video()
 
 	// Listen for keyboard events
@@ -207,7 +223,10 @@ let init = () => {
 
 	// Listen for storage changes
 	chrome.storage.onChanged.addListener(changes => {
-		if (changes['enabled']) extension_enabled = changes['enabled'].newValue
+		if (changes['enabled']) {
+			extension_enabled = changes['enabled'].newValue
+			log('Extension toggled:', extension_enabled ? 'enabled' : 'disabled')
+		}
 	})
 }
 
