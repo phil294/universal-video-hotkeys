@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<style>
+		body {
+			width: 320px;
+			padding: 16px;
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+			font-size: 14px;
+			margin: 0;
+		}
+		h1 {
+			font-size: 18px;
+			margin: 0 0 16px 0;
+			color: #333;
+		}
+		.setting {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			margin: 12px 0;
+		}
+		.toggle {
+			position: relative;
+			width: 48px;
+			height: 24px;
+			background: #ccc;
+			border-radius: 12px;
+			cursor: pointer;
+			transition: background 0.2s;
+		}
+		.toggle.enabled {
+			background: #4CAF50;
+		}
+		.toggle::after {
+			content: '';
+			position: absolute;
+			width: 20px;
+			height: 20px;
+			border-radius: 50%;
+			background: white;
+			top: 2px;
+			left: 2px;
+			transition: left 0.2s;
+		}
+		.toggle.enabled::after {
+			left: 26px;
+		}
+		.shortcuts {
+			margin-top: 20px;
+			border-top: 1px solid #eee;
+			padding-top: 16px;
+		}
+		.shortcuts h2 {
+			font-size: 14px;
+			margin: 0 0 12px 0;
+			color: #666;
+		}
+		.shortcut {
+			display: flex;
+			justify-content: space-between;
+			margin: 8px 0;
+			font-size: 12px;
+		}
+		.key {
+			font-family: monospace;
+			background: #f5f5f5;
+			padding: 2px 6px;
+			border-radius: 3px;
+			font-weight: bold;
+		}
+	</style>
+</head>
+<body>
+	<h1>Universal Video Hotkeys</h1>
+
+	<div class="setting">
+		<span>Enable hotkeys</span>
+		<div class="toggle" id="enabled_toggle"></div>
+	</div>
+
+	<div class="shortcuts">
+		<h2>Keyboard Shortcuts</h2>
+		<div class="shortcut">
+			<span>Seek backward/forward</span>
+			<span><span class="key">←</span> <span class="key">→</span></span>
+		</div>
+		<div class="shortcut">
+			<span>Jump to start/end</span>
+			<span><span class="key">Home</span> <span class="key">End</span></span>
+		</div>
+		<div class="shortcut">
+			<span>Jump to position</span>
+			<span><span class="key">0</span>-<span class="key">9</span></span>
+		</div>
+		<div class="shortcut">
+			<span>Toggle fullscreen</span>
+			<span><span class="key">F</span></span>
+		</div>
+		<div class="shortcut">
+			<span>Toggle mute</span>
+			<span><span class="key">M</span></span>
+		</div>
+		<div class="shortcut">
+			<span>Speed up/down</span>
+			<span><span class="key">Shift + ></span> <span class="key">Shift + <</span></span>
+		</div>
+	</div>
+
+	<script src="popup.js"></script>
+</body>
+</html>

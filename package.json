@@ -1,0 +1,23 @@
+{
+	"name": "universal-video-hotkeys",
+	"version": "1.0.0",
+	"description": "YouTube-style keyboard shortcuts for all video players",
+	"type": "module",
+	"license": "MIT",
+	"scripts": {
+		"lint": "eslint .",
+		"lint:fix": "eslint . --fix",
+		"type-check": "tsc --noEmit",
+		"dev": "npm run lint && npm run type-check"
+	},
+	"devDependencies": {
+		"@types/chrome": "^0.0.268",
+		"@types/node": "^20.14.12",
+		"eslint": "^9.7.0",
+		"neostandard": "^0.12.2",
+		"typescript": "^5.5.4"
+	},
+	"engines": {
+		"node": ">=18.0.0"
+	}
+}
