@@ -15,24 +15,79 @@ let video_observer = null
 /** Log function with prefix @param {...any} args */
 let log = (...args) => console.log('[VideoHotkeys]', ...args)
 
+/** Recursively find all video elements including shadow DOM and iframes @param {Document | DocumentFragment | ShadowRoot} root @returns {HTMLVideoElement[]} */
+let find_all_videos = root => {
+	let start_time = performance.now()
+	/** @type {HTMLVideoElement[]} */
+	let videos = []
+
+	try {
+		// Find direct video elements
+		videos.push(...Array.from(root.querySelectorAll('video')))
+
+		// Search shadow DOMs
+		let elements_with_shadow = root.querySelectorAll('*')
+		for (let element of elements_with_shadow) if (element.shadowRoot) try {
+			videos.push(...find_all_videos(element.shadowRoot))
+		} catch (/** @type {any} */ e) {
+			log('Shadow DOM search error:', String(e.message || e))
+		}
+
+		// Search iframes (same-origin only, others will throw security errors)
+		let iframes = root.querySelectorAll('iframe')
+		for (let iframe of iframes) try {
+			if (iframe.contentDocument) videos.push(...find_all_videos(iframe.contentDocument))
+		} catch (/** @type {any} */ e) {
+			log('Iframe search error (likely cross-origin):', iframe.src || 'about:blank', String(e.message || e))
+		}
+
+		// Search object/embed elements (Flash, legacy video)
+		try {
+			let objects = root.querySelectorAll('object[type*="video"], object[data*=".mp4"], object[data*=".webm"], embed[type*="video"]')
+			for (let obj of objects) {
+				// Check if object contains video element
+				let html_obj = /** @type {HTMLObjectElement} */ (obj)
+				try {
+					if (html_obj.contentDocument) {
+						let object_videos = html_obj.contentDocument.querySelectorAll('video')
+						videos.push(...Array.from(object_videos))
+					}
+				} catch (/** @type {any} */ e) {
+					log('Object/embed content access error:', String(e.message || e))
+				}
+			}
+		} catch (/** @type {any} */ e) {
+			log('Object/embed search error:', String(e.message || e))
+		}
+	} catch (/** @type {any} */ e) {
+		log('Critical video search error:', String(e.message || e), String(e.stack || ''))
+	}
+
+	let search_time = performance.now() - start_time
+	if (search_time > 50) log(`Video search took ${search_time.toFixed(1)}ms (found ${videos.length} videos)`)
+
+	return videos
+}
+
 /** Get the most relevant video element @returns {HTMLVideoElement | null} */
 let get_current_video = () => {
-	/** @type {NodeListOf<HTMLVideoElement>} */
-	let videos = document.querySelectorAll('video')
+	let videos = find_all_videos(document)
 	if (!videos.length) return null
 
 	// Priority 1: Currently playing video
-	let playing = Array.from(videos).find(v => !v.paused && !v.ended)
+	let playing = videos.find(v => !v.paused && !v.ended)
 	if (playing) return playing
 
 	// Priority 2: Video in viewport with largest area
-	let in_viewport = Array.from(videos)
+	let in_viewport = videos
 		.filter(v => {
 			let rect = v.getBoundingClientRect()
 			return rect.top < window.innerHeight &&
 				rect.bottom > 0 &&
 				rect.left < window.innerWidth &&
-				rect.right > 0
+				rect.right > 0 &&
+				rect.width > 0 &&
+				rect.height > 0
 		})
 		.sort((a, b) => {
 			let area_a = a.offsetWidth * a.offsetHeight
@@ -231,5 +286,5 @@ let init = () => {
 }
 
 // Start when DOM is ready
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init)
-else init()
+if (document.readyState === 'complete') init()
+else window.addEventListener('load', init)

@@ -1,9 +1,4 @@
-/** @fileov// Handle checkbox changes
-checkbox.addEventListener('change', () => {
-	let enabled = checkbox.checked
-	chrome.storage.sync.set({enabled})
-	console.log('Extension', enabled ? 'enabled' : 'disabled')
-})Universal Video Hotkeys - Popup Script */
+/** @fileoverview Universal Video Hotkeys - Popup Script */
 
 /** @type {HTMLInputElement | null} */
 let enabled_checkbox = /** @type {HTMLInputElement | null} */ (document.getElementById('enabled_toggle'))

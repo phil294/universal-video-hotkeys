@@ -1,8 +1,13 @@
 {
 	"manifest_version": 3,
 	"name": "Universal Video Hotkeys",
-	"version": "1.0.0",
-	"description": "YouTube-style keyboard shortcuts for all video players",
+	"version": "1.0",
+	"description": "Universal video navigation shortcuts that work on all websites",
+	"browser_specific_settings": {
+		"gecko": {
+			"id": "universal-video-hotkeys@waritschlager.de"
+		}
+	},
 	"permissions": [
 		"activeTab",
 		"storage"
