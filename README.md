@@ -6,6 +6,11 @@ This is the only browser extension of its kind that actually works, and it works
 
 Also disables all custom video controls (can be toggled).
 
+## Install
+
+Firefox: https://addons.mozilla.org/en-US/firefox/addon/universal-video-hotkeys/
+Chrome: tbd
+
 ## Features
 
 - **Smart video detection**: Automatically targets the most relevant video in viewport
