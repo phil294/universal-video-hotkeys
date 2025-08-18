@@ -1,8 +1,9 @@
 {
 	"manifest_version": 3,
 	"name": "Universal Video Hotkeys",
-	"version": "1.0",
-	"description": "Universal video navigation shortcuts that work on all websites",
+	"version": "0.1",
+	"description": "A browser extension that brings YouTube-style keyboard shortcuts to all video players across the web",
+	"homepage_url": "https://github.com/phil294/browser-extension-youtube-style-video-hotkeys",
 	"browser_specific_settings": {
 		"gecko": {
 			"id": "universal-video-hotkeys@waritschlager.de"
