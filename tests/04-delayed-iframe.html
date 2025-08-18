@@ -1,0 +1,12 @@
+<title>04 - Delayed Iframe Creation</title>
+<p>Iframe with video added after 3 seconds. Wait for iframe, then test hotkeys.</p>
+
+<script>
+setTimeout(() => {
+	let iframe = document.createElement('iframe')
+	iframe.src = '03/iframe-content.html'
+	iframe.width = 700
+	iframe.height = 500
+	document.body.appendChild(iframe)
+}, 3000)
+</script>

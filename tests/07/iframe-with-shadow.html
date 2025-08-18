@@ -1,0 +1,11 @@
+<title>Iframe with Shadow DOM</title>
+
+<div id="shadow-host"></div>
+
+<script>
+let host = document.getElementById('shadow-host')
+let shadow = host.attachShadow({mode: 'open'})
+shadow.innerHTML = `
+	<video controls width="600" height="400" src="../test-video.mp4"></video>
+`
+</script>

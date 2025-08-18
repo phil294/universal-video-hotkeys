@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Video Hotkeys Extension Test Suite</title>
+	<style>
+		body { font-family: Arial, sans-serif; margin: 40px; }
+		h1 { color: #333; }
+		ul { list-style-type: none; padding: 0; }
+		li { margin: 10px 0; }
+		a { text-decoration: none; color: #0066cc; padding: 10px; display: block; border: 1px solid #ddd; border-radius: 4px; }
+		a:hover { background-color: #f5f5f5; }
+		.description { color: #666; font-size: 14px; margin-left: 10px; }
+	</style>
+</head>
+<body>
+	<h1>Universal Video Hotkeys - Test Suite</h1>
+	<p>Load the extension in your browser first, then test each scenario:</p>
+
+	<ul>
+		<li><a href="01-basic-video.html">01 - Basic Video Test</a><div class="description">Simple video element</div></li>
+		<li><a href="02-delayed-video.html">02 - Delayed Video Creation</a><div class="description">Video added dynamically after 3s</div></li>
+		<li><a href="03-iframe-video.html">03 - Iframe Video</a><div class="description">Video inside same-origin iframe</div></li>
+		<li><a href="04-delayed-iframe.html">04 - Delayed Iframe Creation</a><div class="description">Iframe with video added after 3s</div></li>
+		<li><a href="05-shadow-dom.html">05 - Shadow DOM Video</a><div class="description">Video inside shadow DOM</div></li>
+		<li><a href="06-delayed-shadow-dom.html">06 - Delayed Shadow DOM</a><div class="description">Shadow DOM with video added after 3s</div></li>
+		<li><a href="07-iframe-shadow.html">07 - Iframe with Shadow DOM</a><div class="description">Iframe containing shadow DOM with video</div></li>
+		<li><a href="08-nested-madness.html">08 - Nested Madness</a><div class="description">Iframe → Shadow DOM → Delayed Iframe → Shadow DOM → Video</div></li>
+		<li><a href="09-multiple-videos.html">09 - Multiple Videos</a><div class="description">Test video priority selection</div></li>
+		<li><a href="10-object-embed.html">10 - Object/Embed Elements</a><div class="description">Legacy object and embed elements</div></li>
+	</ul>
+
+	<h2>Keyboard Shortcuts to Test</h2>
+	<ul style="list-style-type: disc; margin-left: 20px;">
+		<li><code>Space</code> - Play/pause</li>
+		<li><code>←/→</code> - Seek backward/forward 5s</li>
+		<li><code>↑/↓</code> - Volume up/down 5% (when focused/fullscreen)</li>
+		<li><code>Home/End</code> - Jump to start/end</li>
+		<li><code>0-9</code> - Jump to 0%-90%</li>
+		<li><code>F</code> - Toggle fullscreen</li>
+		<li><code>M</code> - Toggle mute</li>
+		<li><code>Shift+></code> - Speed up 25%</li>
+		<li><code>Shift+<</code> - Speed down 25%</li>
+		<li><code>Double-click video</code> - Toggle fullscreen</li>
+	</ul>
+</body>
+</html>

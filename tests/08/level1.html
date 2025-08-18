@@ -1,0 +1,14 @@
+<title>Level 1 - Iframe</title>
+
+<div id="shadow-host"></div>
+
+<script>
+let host = document.getElementById('shadow-host')
+let shadow = host.attachShadow({mode: 'open'})
+
+setTimeout(() => {
+	shadow.innerHTML = `
+		<iframe src="level2.html" width="700" height="500"></iframe>
+	`
+}, 2000)
+</script>

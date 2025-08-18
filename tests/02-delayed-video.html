@@ -1,0 +1,13 @@
+<title>02 - Delayed Video Creation</title>
+<p>Video added after 3 seconds. Wait for it to appear, then test hotkeys.</p>
+
+<script>
+setTimeout(() => {
+	let video = document.createElement('video')
+	video.src = 'test-video.mp4'
+	video.controls = true
+	video.width = 600
+	video.height = 400
+	document.body.appendChild(video)
+}, 3000)
+</script>

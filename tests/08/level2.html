@@ -1,0 +1,14 @@
+<title>Level 2 - Nested Iframe</title>
+
+<div id="final-host"></div>
+
+<script>
+setTimeout(() => {
+	let host = document.getElementById('final-host')
+	let shadow = host.attachShadow({mode: 'open'})
+	shadow.innerHTML = `
+		<video controls width="600" height="400" src="../test-video.mp4"></video>
+		<p>Final video in deeply nested structure!</p>
+	`
+}, 3000)
+</script>

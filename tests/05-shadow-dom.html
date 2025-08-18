@@ -1,0 +1,12 @@
+<title>05 - Shadow DOM Video</title>
+<p>Video inside shadow DOM. Hotkeys should work.</p>
+
+<div id="shadow-host"></div>
+
+<script>
+let host = document.getElementById('shadow-host')
+let shadow = host.attachShadow({mode: 'open'})
+shadow.innerHTML = `
+	<video controls width="600" height="400" src="test-video.mp4"></video>
+`
+</script>
