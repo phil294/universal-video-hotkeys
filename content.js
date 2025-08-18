@@ -1,5 +1,3 @@
-/** @fileoverview Universal Video Hotkeys - Content Script @author GitHub Copilot */
-
 /** @typedef {Document & { webkitFullscreenElement?: Element | null; webkitExitFullscreen?: () => void; }} ExtendedDocument */
 /** @typedef {HTMLVideoElement & { webkitRequestFullscreen?: () => void; }} ExtendedVideoElement */
 /** @typedef {EventTarget & { tagName?: string; isContentEditable?: boolean; }} ExtendedEventTarget */
@@ -11,10 +9,12 @@ let current_video = null
 let extension_enabled = true
 /** @type {boolean} */
 let always_enable_sound = false
-/** @type {MutationObserver | null} */
-let video_observer = null
 /** @type {HTMLDivElement | null} */
 let speed_indicator = null
+/** @type {Set<Document | ShadowRoot>} */
+let observed_roots = new Set()
+/** @type {Set<HTMLIFrameElement>} */
+let observed_iframes = new Set()
 
 /** Log function with prefix @param {...any} args */
 let log = (...args) => console.log('[VideoHotkeys]', ...args)
@@ -63,46 +63,22 @@ let find_all_videos = root => {
 	/** @type {HTMLVideoElement[]} */
 	let videos = []
 
-	try {
-		// Find direct video elements
-		videos.push(...Array.from(root.querySelectorAll('video')))
+	// Find direct video elements
+	videos.push(...Array.from(root.querySelectorAll('video')))
 
-		// Search shadow DOMs
-		let elements_with_shadow = root.querySelectorAll('*')
-		for (let element of elements_with_shadow) if (element.shadowRoot) try {
-			videos.push(...find_all_videos(element.shadowRoot))
-		} catch (/** @type {any} */ e) {
-			log('Shadow DOM search error:', String(e.message || e))
-		}
+	// Search shadow DOMs
+	let elements_with_shadow = root.querySelectorAll('*')
+	for (let element of elements_with_shadow) if (element.shadowRoot) videos.push(...find_all_videos(element.shadowRoot))
 
-		// Search iframes (same-origin only, others will throw security errors)
-		let iframes = root.querySelectorAll('iframe')
-		for (let iframe of iframes) try {
-			if (iframe.contentDocument) videos.push(...find_all_videos(iframe.contentDocument))
-		} catch (/** @type {any} */ e) {
-			log('Iframe search error (likely cross-origin):', iframe.src || 'about:blank', String(e.message || e))
+	// Search object/embed elements (Flash, legacy video)
+	let objects = root.querySelectorAll('object[type*="video"], object[data*=".mp4"], object[data*=".webm"], embed[type*="video"]')
+	for (let obj of objects) {
+		// Check if object contains video element
+		let html_obj = /** @type {HTMLObjectElement} */ (obj)
+		if (html_obj.contentDocument) {
+			let object_videos = html_obj.contentDocument.querySelectorAll('video')
+			videos.push(...Array.from(object_videos))
 		}
-
-		// Search object/embed elements (Flash, legacy video)
-		try {
-			let objects = root.querySelectorAll('object[type*="video"], object[data*=".mp4"], object[data*=".webm"], embed[type*="video"]')
-			for (let obj of objects) {
-				// Check if object contains video element
-				let html_obj = /** @type {HTMLObjectElement} */ (obj)
-				try {
-					if (html_obj.contentDocument) {
-						let object_videos = html_obj.contentDocument.querySelectorAll('video')
-						videos.push(...Array.from(object_videos))
-					}
-				} catch (/** @type {any} */ e) {
-					log('Object/embed content access error:', String(e.message || e))
-				}
-			}
-		} catch (/** @type {any} */ e) {
-			log('Object/embed search error:', String(e.message || e))
-		}
-	} catch (/** @type {any} */ e) {
-		log('Critical video search error:', String(e.message || e), String(e.stack || ''))
 	}
 
 	let search_time = performance.now() - start_time
@@ -343,74 +319,99 @@ let handle_keydown = event => {
 	}
 }
 
-/** Setup video observer using modern MutationObserver */
-let setup_video_observer = () => {
-	if (video_observer) video_observer.disconnect()
+/** Setup keyboard listeners and observers for a document/shadow root @param {Document | ShadowRoot} root */
+let setup_root_observers = root => {
+	// Skip if already observed
+	if (observed_roots.has(root)) return
+	observed_roots.add(root)
 
-	video_observer = new MutationObserver(mutations => {
+	// Add keyboard listener to this root
+	root.addEventListener('keydown', /** @type {EventListener} */ (handle_keydown), true)
+	log('Added keyboard listener to root:', root === document ? 'document' : 'shadow DOM')
+
+	// Find and setup all iframes in this root
+	let iframes = root.querySelectorAll('iframe')
+	for (let iframe of iframes) setup_iframe_observer(iframe)
+
+	// Find and setup all shadow DOMs in this root
+	let elements_with_shadow = root.querySelectorAll('*')
+	for (let element of elements_with_shadow) if (element.shadowRoot) setup_root_observers(element.shadowRoot)
+
+	// Create MutationObserver for this root to watch for new content
+	let observer = new MutationObserver(mutations => {
 		let should_update = false
-		try {
-			for (let mutation of mutations) {
-				// Check for new elements that might contain videos
-				if (mutation.type === 'childList') for (let node of mutation.addedNodes) if (node.nodeType === Node.ELEMENT_NODE) {
-					let element = /** @type {Element} */ (node)
-					// Check if it's a video, contains videos, has shadow DOM, is an iframe, object, or embed
-					if (
-						element.tagName === 'VIDEO' ||
+		let new_content_found = false
+
+		for (let mutation of mutations) if (mutation.type === 'childList') for (let node of mutation.addedNodes) if (node.nodeType === Node.ELEMENT_NODE) {
+			let element = /** @type {Element} */ (node)
+
+			// Check for videos, iframes, objects, embeds
+			if (element.tagName === 'VIDEO' ||
 						element.querySelector('video') ||
-						element.shadowRoot ||
-						element.tagName === 'IFRAME' ||
 						element.tagName === 'OBJECT' ||
-						element.tagName === 'EMBED'
-					) {
-						should_update = true
-						break
-					}
-				}
-				if (should_update) break
+						element.tagName === 'EMBED') should_update = true
+
+			// Check for new iframes
+			if (element.tagName === 'IFRAME') {
+				setup_iframe_observer(/** @type {HTMLIFrameElement} */ (element))
+				new_content_found = true
 			}
-		} catch (/** @type {any} */ e) {
-			log('MutationObserver error:', String(e.message || e))
-			should_update = true // Update anyway in case of errors
+
+			// Check for new shadow DOMs
+			if (element.shadowRoot) {
+				setup_root_observers(element.shadowRoot)
+				new_content_found = true
+			}
+
+			// Recursively check for nested iframes and shadow DOMs
+			let nested_iframes = element.querySelectorAll('iframe')
+			for (let iframe of nested_iframes) {
+				setup_iframe_observer(iframe)
+				new_content_found = true
+			}
+
+			let nested_shadow_elements = element.querySelectorAll('*')
+			for (let nested_element of nested_shadow_elements) if (nested_element.shadowRoot) {
+				setup_root_observers(nested_element.shadowRoot)
+				new_content_found = true
+			}
 		}
+
 		if (should_update) update_current_video()
+		if (new_content_found) log('New dynamic content detected and observers setup')
 	})
 
-	try {
-		video_observer.observe(document.body, {
-			childList: true,
-			subtree: true
-		})
-		log('Aggressive video observer initialized')
-	} catch (/** @type {any} */ e) {
-		log('MutationObserver setup error:', String(e.message || e))
-	}
+	observer.observe(root, {
+		childList: true,
+		subtree: true
+	})
+
+	log('MutationObserver setup for root:', root === document ? 'document' : 'shadow DOM')
 }
 
-/** Initialize iframe content scripts for same-origin iframes */
-let setup_iframe_observers = () => {
-	let start_time = performance.now()
-	let iframes = document.querySelectorAll('iframe')
-	let success_count = 0
+/** Setup observer for a specific iframe @param {HTMLIFrameElement} iframe */
+let setup_iframe_observer = iframe => {
+	// Skip if already observed
+	if (observed_iframes.has(iframe)) return
 
-	for (let iframe of iframes) try {
+	try {
+		// Check if we can access the iframe content (same-origin)
 		if (iframe.contentDocument && iframe.contentWindow) {
-			// Add keyboard listener to iframe
-			iframe.contentDocument.addEventListener('keydown', handle_keydown, true)
-			success_count++
-			log('Added keyboard listener to iframe:', iframe.src || 'about:blank')
+			observed_iframes.add(iframe)
+
+			// Setup observers for the iframe's document
+			setup_root_observers(iframe.contentDocument)
+
+			log('Setup complete for iframe:', iframe.src || 'about:blank')
 		}
 	} catch (/** @type {any} */ e) {
-		log('Iframe setup error (likely cross-origin):', iframe.src || 'about:blank', String(e.message || e))
+		log('Iframe observer setup error (likely cross-origin):', iframe.src || 'about:blank', String(e.message || e))
 	}
-
-	let setup_time = performance.now() - start_time
-	if (setup_time > 10 || success_count > 0) log(`Iframe setup took ${setup_time.toFixed(1)}ms (${success_count}/${iframes.length} iframes accessible)`)
 }
 
 /** Initialize extension */
 let init = () => {
-	log('Initializing aggressive video detection (shadow DOM + iframes)')
+	log('Initializing comprehensive video detection (shadow DOM + iframes + dynamic content)')
 
 	// Load settings
 	chrome.storage.sync.get(['enabled', 'always_enable_sound'], result => {
@@ -426,13 +427,11 @@ let init = () => {
 		log('Always enable sound:', always_enable_sound)
 	})
 
-	// Setup modern video detection with shadow DOM and iframe support
-	setup_video_observer()
-	setup_iframe_observers()
-	update_current_video()
+	// Setup comprehensive observer system starting from document root
+	setup_root_observers(document)
 
-	// Listen for keyboard events
-	document.addEventListener('keydown', handle_keydown, true)
+	// Initial video detection
+	update_current_video()
 
 	// Listen for storage changes
 	chrome.storage.onChanged.addListener(changes => {
