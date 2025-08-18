@@ -8,7 +8,8 @@ let speed_indicator = null
 
 /** Create and show speed indicator overlay @param {number} speed */
 export let show_speed_indicator = speed => {
-	if (speed_indicator) speed_indicator.remove()
+	if (speed_indicator)
+		speed_indicator.remove()
 
 	speed_indicator = document.createElement('div')
 	speed_indicator.textContent = `${speed.toFixed(2)}x`
@@ -106,12 +107,16 @@ export let toggle_fullscreen = video => {
 	let extended_document = /** @type {ExtendedDocument} */ (document)
 
 	if (document.fullscreenElement || extended_document.webkitFullscreenElement) {
-		if (document.exitFullscreen) document.exitFullscreen()
-		else if (extended_document.webkitExitFullscreen) extended_document.webkitExitFullscreen()
+		if (document.exitFullscreen)
+			document.exitFullscreen()
+		else if (extended_document.webkitExitFullscreen)
+			extended_document.webkitExitFullscreen()
 		console.log('[VideoHotkeys] Exit fullscreen')
 	} else {
-		if (extended_video.requestFullscreen) extended_video.requestFullscreen()
-		else if (extended_video.webkitRequestFullscreen) extended_video.webkitRequestFullscreen()
+		if (extended_video.requestFullscreen)
+			extended_video.requestFullscreen()
+		else if (extended_video.webkitRequestFullscreen)
+			extended_video.webkitRequestFullscreen()
 		console.log('[VideoHotkeys] Enter fullscreen')
 	}
 }

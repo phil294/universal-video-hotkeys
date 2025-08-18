@@ -22,7 +22,7 @@ export default [
 			],
 			curly: ['error', 'multi'],
 			'@stylistic/brace-style': ['error', '1tbs', { allowSingleLine: true }],
-			'nonblock-statement-body-position': ['error', 'beside'],
+			'nonblock-statement-body-position': ['error', 'below'],
 			'@stylistic/arrow-parens': ['error', 'as-needed'],
 		}
 	}

@@ -6,7 +6,7 @@ import {
 } from './video.js'
 
 /** @typedef {EventTarget & { tagName?: string; isContentEditable?: boolean; }} ExtendedEventTarget */
-/** @typedef {Object} VideoState @property {HTMLVideoElement} element @property {number} last_interaction */
+/** @typedef {Object} VideoState @property {HTMLVideoElement} element */
 
 /** @type {VideoState | null} */
 let current_video = null
@@ -24,12 +24,14 @@ let log = (...args) => console.log('[VideoHotkeys]', ...args)
 
 /** Get the most relevant video element @returns {HTMLVideoElement | null} */
 let get_current_video = () => {
+	if (!known_videos.size)
+		return null
+
 	let videos = Array.from(known_videos)
 
-	if (!videos.length) return null
-
 	let playing = videos.find(v => !v.paused && !v.ended)
-	if (playing) return playing
+	if (playing)
+		return playing
 
 	let in_viewport = videos
 		.filter(v => {
@@ -55,7 +57,7 @@ let update_current_video = () => {
 	let video = get_current_video()
 	if (video && video !== current_video?.element) {
 		log('Active video changed:', video.src || video.currentSrc || 'unknown source')
-		current_video = { element: video, last_interaction: Date.now() }
+		current_video = { element: video }
 
 		if (always_enable_sound) {
 			video.muted = false
@@ -70,19 +72,23 @@ let update_current_video = () => {
 /** Check if event target is an input element @param {Event} event @returns {boolean} */
 let is_input_target = event => {
 	let target = /** @type {ExtendedEventTarget | null} */ (event.target)
-	if (!target) return false
+	if (!target)
+		return false
 
 	let tag_name = target.tagName
-	if (tag_name && ['INPUT', 'TEXTAREA', 'SELECT'].includes(tag_name)) return true
+	if (tag_name && ['INPUT', 'TEXTAREA', 'SELECT'].includes(tag_name))
+		return true
 
 	return Boolean(target.isContentEditable)
 }
 
 /** Handle keyboard events @param {KeyboardEvent} event */
 let handle_keydown = event => {
-	if (!extension_enabled || !current_video) return
+	if (!extension_enabled || !current_video)
+		return
 
-	if (is_input_target(event)) return
+	if (is_input_target(event))
+		return
 
 	let video = current_video.element
 	let handled = handle_shortcuts(event, video)
@@ -90,13 +96,13 @@ let handle_keydown = event => {
 	if (handled) {
 		event.preventDefault()
 		event.stopPropagation()
-		current_video.last_interaction = Date.now()
 	}
 }
 
-/** Setup observers and listeners recursively for a document/shadow root @param {Document | ShadowRoot} root */
-let setup_observers_recursively = root => {
-	if (observed_roots.has(root)) return
+/** For a document/shadow root, recursively populate known_videos with video tags, setup observers for dom changes and start key listeners @param {Document | ShadowRoot} root */
+let observe_root_recursively = root => {
+	if (observed_roots.has(root))
+		return
 	observed_roots.add(root)
 
 	root.addEventListener('keydown', /** @type {EventListener} */ (handle_keydown), true)
@@ -104,28 +110,37 @@ let setup_observers_recursively = root => {
 
 	let elements = root.querySelectorAll('*')
 	for (let element of elements) {
-		if (element.tagName === 'VIDEO') known_videos.add(/** @type {HTMLVideoElement} */ (element))
-		if (element.shadowRoot) setup_observers_recursively(element.shadowRoot)
-		if (element.tagName === 'IFRAME' && /** @type {HTMLIFrameElement} */ (element).contentDocument) setup_observers_recursively(/** @type {HTMLIFrameElement} */ (element).contentDocument)
+		if (element.tagName === 'VIDEO')
+			known_videos.add(/** @type {HTMLVideoElement} */ (element))
+		if (element.shadowRoot)
+			observe_root_recursively(element.shadowRoot)
+		if (element.tagName === 'IFRAME' && /** @type {HTMLIFrameElement} */ (element).contentDocument)
+			observe_root_recursively(/** @type {HTMLIFrameElement} */ (element).contentDocument)
 	}
 
 	let observer = new MutationObserver(mutations => {
 		let should_update = false
 
-		for (let mutation of mutations) if (mutation.type === 'childList') for (let node of mutation.addedNodes) if (node.nodeType === Node.ELEMENT_NODE) {
-			let element = /** @type {Element} */ (node)
+		for (let mutation of mutations)
+			if (mutation.type === 'childList')
+				for (let node of mutation.addedNodes)
+					if (node.nodeType === Node.ELEMENT_NODE) {
+						let element = /** @type {Element} */ (node)
 
-			if (element.tagName === 'VIDEO') {
-				known_videos.add(/** @type {HTMLVideoElement} */ (element))
-				should_update = true
-			}
+						if (element.tagName === 'VIDEO') {
+							known_videos.add(/** @type {HTMLVideoElement} */ (element))
+							should_update = true
+						}
 
-			if (element.shadowRoot) setup_observers_recursively(element.shadowRoot)
+						if (element.shadowRoot)
+							observe_root_recursively(element.shadowRoot)
 
-			if (element.tagName === 'IFRAME' && /** @type {HTMLIFrameElement} */ (element).contentDocument) setup_observers_recursively(/** @type {HTMLIFrameElement} */ (element).contentDocument)
-		}
+						if (element.tagName === 'IFRAME' && /** @type {HTMLIFrameElement} */ (element).contentDocument)
+							observe_root_recursively(/** @type {HTMLIFrameElement} */ (element).contentDocument)
+					}
 
-		if (should_update) update_current_video()
+		if (should_update)
+			update_current_video()
 	})
 
 	observer.observe(root, { childList: true, subtree: true })
@@ -149,7 +164,7 @@ let init = () => {
 		log('Always enable sound:', always_enable_sound)
 	})
 
-	setup_observers_recursively(document)
+	observe_root_recursively(document)
 	update_current_video()
 
 	chrome.storage.onChanged.addListener(changes => {
@@ -165,5 +180,7 @@ let init = () => {
 }
 
 // Start when DOM is ready
-if (document.readyState === 'complete') init()
-else window.addEventListener('load', init)
+if (document.readyState === 'complete')
+	init()
+else
+	window.addEventListener('load', init)
