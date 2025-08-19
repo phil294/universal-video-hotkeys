@@ -1,6 +1,7 @@
 import neostandard from 'neostandard'
 import jsdoc from 'eslint-plugin-jsdoc'
 import custom__no_jsdoc_cast from './eslint-plugin-no-jsdoc-cast.js'
+import custom__snake_case from './eslint-plugin-snake-case.js'
 
 import eslint from '@eslint/js'
 import globals from 'globals'
@@ -31,7 +32,8 @@ export default [
 	},
 	{
 		plugins: {
-			'custom--no-jsdoc-cast': custom__no_jsdoc_cast
+			'custom--no-jsdoc-cast': custom__no_jsdoc_cast,
+			'custom--snake-case': custom__snake_case
 		},
 		rules: {
 			'@stylistic/indent': ['error', 'tab'],
@@ -60,6 +62,7 @@ export default [
 			'@typescript-eslint/typedef': 'off',
 			// ...
 			'custom--no-jsdoc-cast/no-jsdoc-cast': 'error',
+			'custom--snake-case/snake-case': 'error',
 			'no-void': 'off',
 		}
 	}
