@@ -106,82 +106,56 @@ function observe_root_recursively (/** @type {Document | ShadowRoot} */ root, /*
 	root.addEventListener('keydown', handle_keydown, true)
 
 	let elements = root.querySelectorAll('*')
-	for (let element of elements) {
-		if (element.tagName === 'VIDEO' && element instanceof HTMLVideoElement) {
-			log('Found video:', element.src || element.currentSrc || 'unknown source', element.src ? undefined : element)
-			known_videos.add(element)
-			globalThis.setup_double_click_fullscreen(element)
-		}
-		if (element.shadowRoot)
-			observe_root_recursively(element.shadowRoot, 'shadow selector')
-		// Track unresolved custom elements (hyphenated tag, no shadow yet).
-		// This is important for inactive background tab loading in FF and maybe more
-		else if (element.tagName.includes('-')) {
-			log('Waiting for custom component without shadowRoot:', element.tagName)
-			// When definition is ready, re-check shadow root (constructor may attach then)
-			void customElements.whenDefined(element.tagName.toLowerCase()).then(() => {
-				if (!element.isConnected || !element.shadowRoot)
-					return
-				observe_root_recursively(element.shadowRoot, 'custom component selector whenDefined')
-			})
-		}
-
-		if (element.tagName === 'IFRAME' && element instanceof HTMLIFrameElement) {
-			if (element.contentDocument)
-				observe_root_recursively(element.contentDocument, 'iframe selector ' + element.src)
-
-			// Add load listener to catch delayed availability or navigations
-			element.addEventListener('load', () => {
-				if (element.contentDocument)
-					observe_root_recursively(element.contentDocument, 'iframe selector onload ' + element.src)
-			}, { once: false })
-		}
-	}
+	for (let element of elements)
+		handle_new_element(element, 'scan')
 
 	let observer = new MutationObserver(mutations => {
 		let should_update = false
-
 		for (let mutation of mutations)
 			if (mutation.type === 'childList')
 				for (let node of mutation.addedNodes)
-					if (node.nodeType === Node.ELEMENT_NODE && node instanceof Element) {
-						let element = node
-
-						if (element.tagName === 'VIDEO' && element instanceof HTMLVideoElement) {
-							log('Mutation: New video:', element.src || element.currentSrc || 'unknown source')
-							known_videos.add(element)
-							globalThis.setup_double_click_fullscreen(element)
+					if (node.nodeType === Node.ELEMENT_NODE && node instanceof Element)
+						if (handle_new_element(node, 'mutation'))
 							should_update = true
-						}
-
-						if (element.shadowRoot) {
-							log('Mutation: Observing shadow root:', element.tagName)
-							observe_root_recursively(element.shadowRoot, 'mutation node shadow')
-						} else if (element.tagName.includes('-')) {
-							log('Mutation: Waiting for custom component without shadowRoot:', element.tagName)
-							void customElements.whenDefined(element.tagName.toLowerCase()).then(() => {
-								if (!element.isConnected || !element.shadowRoot)
-									return
-								observe_root_recursively(element.shadowRoot, 'mutation node custom component whenDefined')
-							})
-						}
-
-						if (element.tagName === 'IFRAME' && element instanceof HTMLIFrameElement) {
-							if (element.contentDocument)
-								observe_root_recursively(element.contentDocument, 'mutation node iframe ' + element.src)
-
-							element.addEventListener('load', () => {
-								if (element.contentDocument)
-									observe_root_recursively(element.contentDocument, 'mutation node iframe onload ' + element.src)
-							})
-						}
-					}
-
 		if (should_update)
 			update_current_video()
 	})
 
 	observer.observe(root, { childList: true, subtree: true })
+}
+
+/** Handle a newly encountered element. Returns true if this call added a video. */
+function handle_new_element (/** @type {Element} */ element, /** @type {'scan' | 'mutation'} */ phase) {
+	if (element instanceof HTMLVideoElement) {
+		if (!known_videos.has(element)) {
+			log(phase + ': New video', element.src || element.currentSrc || element)
+			known_videos.add(element)
+			globalThis.setup_double_click_fullscreen(element)
+			return true
+		}
+		return false
+	}
+	if (element.shadowRoot)
+		observe_root_recursively(element.shadowRoot, phase === 'mutation' ? 'mutation node shadow' : 'shadow selector')
+	else if (element.tagName.includes('-')) {
+		// unresolved custom element (no shadow yet)
+		log(phase + ': Waiting for custom component without shadowRoot:', element.tagName)
+		void customElements.whenDefined(element.tagName.toLowerCase()).then(() => {
+			if (!element.isConnected || !element.shadowRoot)
+				return
+			observe_root_recursively(element.shadowRoot, phase + ': custom component whenDefined')
+		})
+	}
+	if (element instanceof HTMLIFrameElement) {
+		if (element.contentDocument)
+			observe_root_recursively(element.contentDocument, phase + ': iframe ' + element.src)
+		// Load listener to catch delayed availability or navigations
+		element.addEventListener('load', () => {
+			if (element.contentDocument)
+				observe_root_recursively(element.contentDocument, phase + ': iframe onload ' + element.src)
+		}, { once: false })
+	}
+	return false
 }
 
 /** injects a page-world hook to catch shadow root creations. necessary there's no api for that and mutation observer also isn't notified. */
