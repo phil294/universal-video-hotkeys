@@ -55,6 +55,8 @@ export default [
 			'jsdoc/require-returns': 'off',
 			'jsdoc/require-param': 'off',
 			'jsdoc/require-property': 'off',
+			'jsdoc/require-jsdoc': 'off',
+			'jsdoc/require-param-description': 'off',
 			// ...not compatible with JSDoc https://github.com/typescript-eslint/typescript-eslint/issues/9908 https://github.com/typescript-eslint/typescript-eslint/issues/8955#issuecomment-2097518639
 			'@typescript-eslint/explicit-function-return-type': 'off',
 			'@typescript-eslint/explicit-module-boundary-types': 'off',

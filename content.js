@@ -14,8 +14,8 @@ let observed_roots = new Set()
 /** @type {Set<HTMLVideoElement>} */
 let known_videos = new Set()
 
-/** Log function with prefix @param {unknown[]} args */
-let log = (...args) => { console.debug('[VideoHotkeys]', ...args) }
+/** @param {unknown[]} args */
+let log = (...args) => { console.debug('[UniversalVideoHotkeys]', ...args) }
 
 /** Get the most relevant video element @returns {HTMLVideoElement | null} */
 let get_current_video = () => {
@@ -95,11 +95,13 @@ let handle_keydown = event => {
 	}
 }
 
-/** For a document/shadow root, recursively populate known_videos with video tags, setup observers for dom changes and start key listeners @param {Document | ShadowRoot} root */
-let observe_root_recursively = root => {
+/** For a document/shadow root, recursively populate known_videos with video tags, setup observers for dom changes and start key listeners */
+function observe_root_recursively (/** @type {Document | ShadowRoot} */ root, /** @type {string} */ origin) {
 	if (observed_roots.has(root))
 		return
 	observed_roots.add(root)
+	let root_title = root instanceof ShadowRoot ? 'shadow:' + root.host.tagName : root.nodeName
+	log('Observing new root:', root_title, 'origin:', origin, ', total:', observed_roots.size)
 
 	root.addEventListener('keydown', handle_keydown, true)
 
@@ -110,13 +112,29 @@ let observe_root_recursively = root => {
 			known_videos.add(element)
 			globalThis.setup_double_click_fullscreen(element)
 		}
-		if (element.shadowRoot) {
-			log('Observing shadow root:', element.tagName)
-			observe_root_recursively(element.shadowRoot)
+		if (element.shadowRoot)
+			observe_root_recursively(element.shadowRoot, 'shadow selector')
+		// Track unresolved custom elements (hyphenated tag, no shadow yet).
+		// This is important for inactive background tab loading in FF and maybe more
+		else if (element.tagName.includes('-')) {
+			log('Waiting for custom component without shadowRoot:', element.tagName)
+			// When definition is ready, re-check shadow root (constructor may attach then)
+			void customElements.whenDefined(element.tagName.toLowerCase()).then(() => {
+				if (!element.isConnected || !element.shadowRoot)
+					return
+				observe_root_recursively(element.shadowRoot, 'custom component selector whenDefined')
+			})
 		}
-		if (element.tagName === 'IFRAME' && element instanceof HTMLIFrameElement && element.contentDocument) {
-			log('Observing iframe:', element.src || 'unknown source', element.src ? undefined : element)
-			observe_root_recursively(element.contentDocument)
+
+		if (element.tagName === 'IFRAME' && element instanceof HTMLIFrameElement) {
+			if (element.contentDocument)
+				observe_root_recursively(element.contentDocument, 'iframe selector ' + element.src)
+
+			// Add load listener to catch delayed availability or navigations
+			element.addEventListener('load', () => {
+				if (element.contentDocument)
+					observe_root_recursively(element.contentDocument, 'iframe selector onload ' + element.src)
+			}, { once: false })
 		}
 	}
 
@@ -138,12 +156,24 @@ let observe_root_recursively = root => {
 
 						if (element.shadowRoot) {
 							log('Mutation: Observing shadow root:', element.tagName)
-							observe_root_recursively(element.shadowRoot)
+							observe_root_recursively(element.shadowRoot, 'mutation node shadow')
+						} else if (element.tagName.includes('-')) {
+							log('Mutation: Waiting for custom component without shadowRoot:', element.tagName)
+							void customElements.whenDefined(element.tagName.toLowerCase()).then(() => {
+								if (!element.isConnected || !element.shadowRoot)
+									return
+								observe_root_recursively(element.shadowRoot, 'mutation node custom component whenDefined')
+							})
 						}
 
-						if (element.tagName === 'IFRAME' && element instanceof HTMLIFrameElement && element.contentDocument) {
-							log('Mutation: Observing iframe:', element.src || 'unknown source', element.src ? undefined : element)
-							observe_root_recursively(element.contentDocument)
+						if (element.tagName === 'IFRAME' && element instanceof HTMLIFrameElement) {
+							if (element.contentDocument)
+								observe_root_recursively(element.contentDocument, 'mutation node iframe ' + element.src)
+
+							element.addEventListener('load', () => {
+								if (element.contentDocument)
+									observe_root_recursively(element.contentDocument, 'mutation node iframe onload ' + element.src)
+							})
 						}
 					}
 
@@ -154,7 +184,54 @@ let observe_root_recursively = root => {
 	observer.observe(root, { childList: true, subtree: true })
 }
 
-/** Initialize extension */
+/** injects a page-world hook to catch shadow root creations. necessary there's no api for that and mutation observer also isn't notified. */
+function observe_shadow_root_attachments () {
+	if (document.getElementById('__video_hotkeys_shadow_attach_hook'))
+		return
+	let script_element = document.createElement('script')
+	script_element.id = '__video_hotkeys_shadow_attach_hook'
+	script_element.textContent =
+		`(() => {
+			if (window.__video_hotkeys_shadow_attach_hooked)
+				return
+			window.__video_hotkeys_shadow_attach_hooked = true
+			let original = Element.prototype.attachShadow
+			function dispatch(/** @type {Element} */ host, /** @type {ShadowRoot | null} */ shadow) {
+				try {
+					window.dispatchEvent(new CustomEvent('video_hotkeys_shadow_root_attached', {
+						host, shadow
+					}))
+				} catch (err) {
+					console.debug('[UniversalVideoHotkeys] Failed to dispatch shadow root attached custom event', err)
+				}
+			}
+			Element.prototype.attachShadow = function (/** @type {ShadowRootInit} */ root_init) {
+				let shadow = original.call(this, root_init)
+				dispatch(this, shadow)
+				return shadow
+			}
+			queueMicrotask(() => {
+				for (let el of document.querySelectorAll('*'))
+					if (el.shadowRoot)
+						dispatch(el, el.shadowRoot)
+			})
+		})()`
+	document.documentElement.appendChild(script_element)
+	log('Injected shadow attach root hook')
+}
+window.addEventListener('video_hotkeys_shadow_root_attached', event => {
+	if (!(event instanceof CustomEvent))
+		return
+	// eslint-disable-next-line custom--no-jsdoc-cast/no-jsdoc-cast
+	let { shadow, host } = /** @type {{ host?: Element | null, shadow?: ShadowRoot | null }} */ (event)
+	if (shadow && !observed_roots.has(shadow)) {
+		observe_root_recursively(shadow, 'shadow attach hook shadow')
+		return
+	}
+	if (host?.shadowRoot && !observed_roots.has(host.shadowRoot))
+		observe_root_recursively(host.shadowRoot, 'shadow attach hook host shadow')
+})
+
 let init = () => {
 	log('Init')
 
@@ -171,9 +248,11 @@ let init = () => {
 		log('Always enable sound:', always_enable_sound)
 	})
 
-	log('Observing root document')
+	// Needs to happen early as this hooks into prototype in host page
+	observe_shadow_root_attachments()
+
 	// console.time('init')
-	observe_root_recursively(document)
+	observe_root_recursively(document, 'root document')
 	// console.timeEnd('init')
 	update_current_video()
 

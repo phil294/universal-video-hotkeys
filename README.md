@@ -76,8 +76,4 @@ See [./CONTRIBUTING.md](./CONTRIBUTING.md)
 
 ## License
 
-MIT
-
-## AI
-
-This project was built in large parts by an LLM (Copilot / Sonnet 4).
+AGPL

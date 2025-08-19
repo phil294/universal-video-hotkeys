@@ -1,6 +1,6 @@
 /** @file ESLint plugin to enforce snake_case for custom identifiers */
 
-let is_snake_case = (/** @type {string} */ name) => /^[a-z][a-z0-9_]*$/.test(name)
+let is_snake_case = (/** @type {string} */ name) => /^[a-z_$][a-z0-9_]*$/.test(name)
 
 let to_snake_case = (/** @type {string} */ name) => {
 	return name

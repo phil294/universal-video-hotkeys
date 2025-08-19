@@ -1,0 +1,22 @@
+<title>12 - Custom Element Delayed attachShadow</title>
+<p>Custom element defined immediately; its shadow root (with video) appears after 3 seconds. Hotkeys should work once video shows.</p>
+
+<custom-video-delay id="test-el"></custom-video-delay>
+
+<script>
+class CustomVideoDelay extends HTMLElement {
+	connectedCallback() {
+		// Deliberately delay shadow root creation
+		setTimeout(() => {
+			// If shadow already attached (unlikely), skip
+			if (this.shadowRoot)
+				return
+			let shadow = this.attachShadow({ mode: 'open' })
+			shadow.innerHTML = `
+				<video controls width="600" height="400" src="test-video.mp4"></video>
+			`
+		}, 3000)
+	}
+}
+customElements.define('custom-video-delay', CustomVideoDelay)
+</script>
