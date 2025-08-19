@@ -19,7 +19,7 @@ let observed_roots = new Set()
 /** @type {Set<HTMLVideoElement>} */
 let known_videos = new Set()
 
-/** Log function with prefix @param {...any} args */
+/** Log function with prefix @param {unknown[]} args */
 let log = (...args) => { console.log('[VideoHotkeys]', ...args) }
 
 /** Get the most relevant video element @returns {HTMLVideoElement | null} */
@@ -71,19 +71,22 @@ let update_current_video = () => {
 
 /** Check if event target is an input element @param {Event} event @returns {boolean} */
 let is_input_target = event => {
-	let target = /** @type {ExtendedEventTarget | null} */ (event.target)
-	if (!target)
+	let target = event.target
+	if (!(target instanceof HTMLElement))
 		return false
 
 	let tag_name = target.tagName
 	if (tag_name && ['INPUT', 'TEXTAREA', 'SELECT'].includes(tag_name))
 		return true
 
-	return Boolean(target.isContentEditable)
+	return target.isContentEditable
 }
 
-/** Handle keyboard events @param {KeyboardEvent} event */
+/** Handle keyboard events @param {Event} event */
 let handle_keydown = event => {
+	if (!(event instanceof KeyboardEvent))
+		return
+
 	if (!extension_enabled || !current_video)
 		return
 
@@ -105,17 +108,17 @@ let observe_root_recursively = root => {
 		return
 	observed_roots.add(root)
 
-	root.addEventListener('keydown', /** @type {EventListener} */ (handle_keydown), true)
+	root.addEventListener('keydown', handle_keydown, true)
 	log('Added keyboard listener to root:', root === document ? 'document' : 'shadow DOM')
 
 	let elements = root.querySelectorAll('*')
 	for (let element of elements) {
-		if (element.tagName === 'VIDEO')
-			known_videos.add(/** @type {HTMLVideoElement} */ (element))
+		if (element.tagName === 'VIDEO' && element instanceof HTMLVideoElement)
+			known_videos.add(element)
 		if (element.shadowRoot)
 			observe_root_recursively(element.shadowRoot)
-		if (element.tagName === 'IFRAME' && /** @type {HTMLIFrameElement} */ (element).contentDocument)
-			observe_root_recursively(/** @type {HTMLIFrameElement} */ (element).contentDocument)
+		if (element.tagName === 'IFRAME' && element instanceof HTMLIFrameElement && element.contentDocument)
+			observe_root_recursively(element.contentDocument)
 	}
 
 	let observer = new MutationObserver(mutations => {
@@ -124,19 +127,19 @@ let observe_root_recursively = root => {
 		for (let mutation of mutations)
 			if (mutation.type === 'childList')
 				for (let node of mutation.addedNodes)
-					if (node.nodeType === Node.ELEMENT_NODE) {
-						let element = /** @type {Element} */ (node)
+					if (node.nodeType === Node.ELEMENT_NODE && node instanceof Element) {
+						let element = node
 
-						if (element.tagName === 'VIDEO') {
-							known_videos.add(/** @type {HTMLVideoElement} */ (element))
+						if (element.tagName === 'VIDEO' && element instanceof HTMLVideoElement) {
+							known_videos.add(element)
 							should_update = true
 						}
 
 						if (element.shadowRoot)
 							observe_root_recursively(element.shadowRoot)
 
-						if (element.tagName === 'IFRAME' && /** @type {HTMLIFrameElement} */ (element).contentDocument)
-							observe_root_recursively(/** @type {HTMLIFrameElement} */ (element).contentDocument)
+						if (element.tagName === 'IFRAME' && element instanceof HTMLIFrameElement && element.contentDocument)
+							observe_root_recursively(element.contentDocument)
 					}
 
 		if (should_update)
@@ -151,14 +154,14 @@ let observe_root_recursively = root => {
 let init = () => {
 	log('Initializing comprehensive video detection')
 
-	chrome.storage.sync.get(['enabled', 'always_enable_sound'], result => {
-		if (chrome.runtime.lastError) {
-			log('Storage error:', chrome.runtime.lastError)
+	void browser.storage.sync.get(['enabled', 'always_enable_sound']).then(result => {
+		if (browser.runtime.lastError) {
+			log('Storage error:', browser.runtime.lastError)
 			extension_enabled = true
 			always_enable_sound = false
 		} else {
-			extension_enabled = result && result['enabled'] !== false
-			always_enable_sound = result && result['always_enable_sound'] === true
+			extension_enabled = result['enabled'] !== false
+			always_enable_sound = result['always_enable_sound'] === true
 		}
 		log('Extension enabled:', extension_enabled)
 		log('Always enable sound:', always_enable_sound)
@@ -167,13 +170,13 @@ let init = () => {
 	observe_root_recursively(document)
 	update_current_video()
 
-	chrome.storage.onChanged.addListener(changes => {
+	browser.storage.onChanged.addListener(changes => {
 		if (changes['enabled']) {
-			extension_enabled = changes['enabled'].newValue
+			extension_enabled = Boolean(changes['enabled'].newValue)
 			log('Extension toggled:', extension_enabled ? 'enabled' : 'disabled')
 		}
 		if (changes['always_enable_sound']) {
-			always_enable_sound = changes['always_enable_sound'].newValue
+			always_enable_sound = Boolean(changes['always_enable_sound'].newValue)
 			log('Always enable sound toggled:', always_enable_sound ? 'enabled' : 'disabled')
 		}
 	})

@@ -8,6 +8,9 @@ import typescript_eslint from 'typescript-eslint'
 
 /** @type {(import("eslint").Linter.Config<import('eslint/rules').ESLintRules>)[]} */
 export default [
+	{
+		ignores: ['dist*']
+	},
 	eslint.configs.recommended,
 	...neostandard({
 		env: ['browser', 'webextensions'],
@@ -57,6 +60,7 @@ export default [
 			'@typescript-eslint/typedef': 'off',
 			// ...
 			'custom--no-jsdoc-cast/no-jsdoc-cast': 'error',
+			'no-void': 'off',
 		}
 	}
 ]

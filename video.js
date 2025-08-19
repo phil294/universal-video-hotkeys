@@ -50,8 +50,10 @@ export let setup_double_click_fullscreen = video => {
 let handle_double_click = event => {
 	event.preventDefault()
 	event.stopPropagation()
-	let video = /** @type {HTMLVideoElement} */ (event.target)
-	toggle_fullscreen(video)
+	if (event.target instanceof HTMLVideoElement) {
+		let video = event.target
+		toggle_fullscreen(video)
+	}
 }
 
 /** Change volume by percentage @param {HTMLVideoElement} video @param {number} delta */
@@ -67,7 +69,7 @@ export let change_volume = (video, delta) => {
 export let seek_video = (video, seconds) => {
 	let old_time = video.currentTime
 	video.currentTime = Math.max(0, Math.min(video.duration || 0, video.currentTime + seconds))
-	console.log(`[VideoHotkeys] Seek ${seconds > 0 ? '+' : ''}${seconds}s: ${old_time.toFixed(1)}s → ${video.currentTime.toFixed(1)}s`)
+	console.log(`[VideoHotkeys] Seek ${seconds > 0 ? '+' : ''}${String(seconds)}s: ${old_time.toFixed(1)}s → ${video.currentTime.toFixed(1)}s`)
 }
 
 /** Jump to percentage of video @param {HTMLVideoElement} video @param {number} percentage */
@@ -75,7 +77,7 @@ export let jump_to_percentage = (video, percentage) => {
 	if (video.duration) {
 		let new_time = (percentage / 100) * video.duration
 		video.currentTime = new_time
-		console.log(`[VideoHotkeys] Jump to ${percentage}%: ${new_time.toFixed(1)}s`)
+		console.log(`[VideoHotkeys] Jump to ${String(percentage)}%: ${new_time.toFixed(1)}s`)
 	}
 }
 
@@ -93,7 +95,7 @@ export let change_speed = (video, direction) => {
 /** Toggle play/pause @param {HTMLVideoElement} video */
 export let toggle_play_pause = video => {
 	if (video.paused) {
-		video.play()
+		void video.play()
 		console.log('[VideoHotkeys] Play')
 	} else {
 		video.pause()
@@ -103,20 +105,11 @@ export let toggle_play_pause = video => {
 
 /** Toggle fullscreen @param {HTMLVideoElement} video */
 export let toggle_fullscreen = video => {
-	let extended_video = /** @type {ExtendedVideoElement} */ (video)
-	let extended_document = /** @type {ExtendedDocument} */ (document)
-
-	if (document.fullscreenElement || extended_document.webkitFullscreenElement) {
-		if (document.exitFullscreen)
-			document.exitFullscreen()
-		else if (extended_document.webkitExitFullscreen)
-			extended_document.webkitExitFullscreen()
+	if (document.fullscreenElement) {
+		void document.exitFullscreen()
 		console.log('[VideoHotkeys] Exit fullscreen')
 	} else {
-		if (extended_video.requestFullscreen)
-			extended_video.requestFullscreen()
-		else if (extended_video.webkitRequestFullscreen)
-			extended_video.webkitRequestFullscreen()
+		void video.requestFullscreen()
 		console.log('[VideoHotkeys] Enter fullscreen')
 	}
 }

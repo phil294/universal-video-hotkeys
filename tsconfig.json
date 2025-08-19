@@ -1,5 +1,9 @@
 {
 	"compilerOptions": {
+		"types": [
+			"webextension-polyfill",
+			"node",
+		],
 		"target": "ES2022",
 		"module": "ESNext",
 		"moduleResolution": "node",
@@ -27,7 +31,7 @@
 	},
 	"include": [
 		"*.js",
-		"**/*.js"
+		"global.types.d.ts",
 	],
 	"exclude": [
 		"node_modules",

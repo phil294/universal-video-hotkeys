@@ -57,48 +57,22 @@ This is the only browser extension of its kind that actually works, and it works
   - Enable "Always enable sound" (unmutes and maximizes volume on video change)
   - View all available keyboard shortcuts
 
-## Code Quality
+## Building, Development and Contributing
 
-- **Neostandard**: Modern ESLint config with tabs and minimal braces
-- **TypeScript**: Full type checking via JSDoc comments
-- **Zero dependencies**: Pure vanilla JavaScript
-- **Modern ES2022**: Uses latest JavaScript features where supported
-
-## Development
-
-```bash
-# Install dependencies
-npm install
-
-# Lint the code (also maybe install an ESLint IDE plugin)
-npm run lint
-
-# Fix linting issues automatically
-npm run lint:fix
-
-# Run TypeScript type checking
-npm run type-check
-
-# Run both linting and type checking
-npm run dev
-```
-
-No build step required - just reload the extension in browser after changes.
-
-## How It Works
-
-The extension:
-1. Injects a content script on every page
-2. Continuously monitors for HTML5 `<video>` elements
-3. Prioritizes currently playing videos, then largest video in viewport
-4. Intercepts keyboard events and translates them to video API calls
-5. Respects input fields and doesn't interfere with typing
+See [./CONTRIBUTING.md](./CONTRIBUTING.md)
 
 ## Limitations
 
 - Only works with standard HTML5 video elements
 - Some sites with heavily customized players (Netflix, etc.) may have limited compatibility
 - Shortcuts are disabled when typing in input fields
+
+## Extension Permissions
+
+- `activeTab` - Access current tab for video detection
+- `storage` - Save user settings (enabled/disabled, always enable sound)
+- No host permissions needed - works on any site with videos
+
 
 ## License
 
