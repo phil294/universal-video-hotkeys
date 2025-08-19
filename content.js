@@ -13,6 +13,8 @@ let always_enable_sound = false
 let observed_roots = new Set()
 /** @type {Set<HTMLVideoElement>} */
 let known_videos = new Set()
+/** Closed shadow roots can't be reopened later and need to be captured at creation time. @type {WeakMap<Element, ShadowRoot>} */
+let closed_shadow_root_by_host = new WeakMap()
 
 /** @param {unknown[]} args */
 let log = (...args) => { console.debug('[UniversalVideoHotkeys]', ...args) }
@@ -125,10 +127,10 @@ function observe_root_recursively (/** @type {Document | ShadowRoot} */ root, /*
 }
 
 /** Handle a newly encountered element. Returns true if this call added a video. */
-function handle_new_element (/** @type {Element} */ element, /** @type {'scan' | 'mutation'} */ phase) {
+function handle_new_element (/** @type {Element} */ element, /** @type {'scan' | 'mutation'} */ origin) {
 	if (element instanceof HTMLVideoElement) {
 		if (!known_videos.has(element)) {
-			log(phase + ': New video', element.src || element.currentSrc || element)
+			log(origin + ': New video', element.src || element.currentSrc || element)
 			known_videos.add(element)
 			globalThis.setup_double_click_fullscreen(element)
 			return true
@@ -136,23 +138,32 @@ function handle_new_element (/** @type {Element} */ element, /** @type {'scan' |
 		return false
 	}
 	if (element.shadowRoot)
-		observe_root_recursively(element.shadowRoot, phase === 'mutation' ? 'mutation node shadow' : 'shadow selector')
-	else if (element.tagName.includes('-')) {
-		// unresolved custom element (no shadow yet)
-		log(phase + ': Waiting for custom component without shadowRoot:', element.tagName)
-		void customElements.whenDefined(element.tagName.toLowerCase()).then(() => {
-			if (!element.isConnected || !element.shadowRoot)
-				return
-			observe_root_recursively(element.shadowRoot, phase + ': custom component whenDefined')
-		})
+		observe_root_recursively(element.shadowRoot, origin + ': shadow')
+	else {
+		let closed_shadow = closed_shadow_root_by_host.get(element)
+		if (closed_shadow)
+			observe_root_recursively(closed_shadow, origin + ': shadow closed map')
+		else if (element.tagName.includes('-')) {
+			// unresolved custom element (no shadow yet)
+			log(origin + ': Waiting for custom component without shadowRoot:', element.tagName)
+			void customElements.whenDefined(element.tagName.toLowerCase()).then(() => {
+				if (!element.isConnected)
+					return
+				let late_closed = closed_shadow_root_by_host.get(element)
+				if (late_closed)
+					observe_root_recursively(late_closed, origin + ': custom component whenDefined closed map')
+				else if (element.shadowRoot)
+					observe_root_recursively(element.shadowRoot, origin + ': custom component whenDefined')
+			})
+		}
 	}
 	if (element instanceof HTMLIFrameElement) {
 		if (element.contentDocument)
-			observe_root_recursively(element.contentDocument, phase + ': iframe ' + element.src)
+			observe_root_recursively(element.contentDocument, origin + ': iframe ' + element.src)
 		// Load listener to catch delayed availability or navigations
 		element.addEventListener('load', () => {
 			if (element.contentDocument)
-				observe_root_recursively(element.contentDocument, phase + ': iframe onload ' + element.src)
+				observe_root_recursively(element.contentDocument, origin + ': iframe onload ' + element.src)
 		}, { once: false })
 	}
 	return false
@@ -198,12 +209,24 @@ window.addEventListener('video_hotkeys_shadow_root_attached', event => {
 		return
 	// eslint-disable-next-line custom--no-jsdoc-cast/no-jsdoc-cast
 	let { shadow, host } = /** @type {{ host?: Element | null, shadow?: ShadowRoot | null }} */ (event)
-	if (shadow && !observed_roots.has(shadow)) {
+	if (shadow) {
+		if (host && !host.shadowRoot) {
+			// TODO: rm log
+			log('Shadow attach hook: host without shadowRoot, storing closed shadow root for', host.tagName)
+			closed_shadow_root_by_host.set(host, shadow)
+		}
 		observe_root_recursively(shadow, 'shadow attach hook shadow')
 		return
 	}
-	if (host?.shadowRoot && !observed_roots.has(host.shadowRoot))
-		observe_root_recursively(host.shadowRoot, 'shadow attach hook host shadow')
+	if (host) {
+		let closed_shadow = closed_shadow_root_by_host.get(host)
+		if (closed_shadow) {
+			observe_root_recursively(closed_shadow, 'shadow attach hook closed map')
+			return
+		}
+		if (host.shadowRoot)
+			observe_root_recursively(host.shadowRoot, 'shadow attach hook host shadow')
+	}
 })
 
 let init = () => {
@@ -242,8 +265,8 @@ let init = () => {
 	})
 }
 
-// Start when DOM is ready
-if (document.readyState === 'complete')
-	init()
+// Start as early as possible
+if (document.readyState === 'loading')
+	document.addEventListener('DOMContentLoaded', init)
 else
-	window.addEventListener('load', init)
+	init()

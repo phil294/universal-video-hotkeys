@@ -1,0 +1,14 @@
+<title>13 - Closed Shadow DOM Video</title>
+<p>Video inside a closed shadow root. Hotkeys should only work if closed shadow root hook captures the shadow before it becomes inaccessible.</p>
+
+<div id="closed-shadow-host"></div>
+
+<script>
+let host = document.getElementById('closed-shadow-host')
+// Create closed shadow root
+let shadow = host.attachShadow({ mode: 'closed' })
+// Immediately populate with video
+shadow.innerHTML = `
+	<video controls width="600" height="400" src="test-video.mp4"></video>
+`
+</script>
