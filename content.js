@@ -1,10 +1,5 @@
 /** @file Universal Video Hotkeys - Content Script */
 
-import {
-	setup_double_click_fullscreen,
-	handle_shortcuts
-} from './video.js'
-
 /** @typedef {EventTarget & { tagName?: string; isContentEditable?: boolean; }} ExtendedEventTarget */
 /** @typedef {object} VideoState @property {HTMLVideoElement} element */
 
@@ -65,7 +60,7 @@ let update_current_video = () => {
 			log('Force sound: unmuted and volume set to 100%')
 		}
 
-		setup_double_click_fullscreen(video)
+		globalThis.setup_double_click_fullscreen(video)
 	}
 }
 
@@ -94,7 +89,7 @@ let handle_keydown = event => {
 		return
 
 	let video = current_video.element
-	let handled = handle_shortcuts(event, video)
+	let handled = globalThis.handle_shortcuts(event, video)
 
 	if (handled) {
 		event.preventDefault()
