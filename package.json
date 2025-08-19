@@ -7,16 +7,20 @@
 	"scripts": {
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",
-		"type-check": "tsc --noEmit",
+		"type-check": "tsc",
 		"dev": "npm run lint && npm run type-check",
 		"test-serve": "python3 -m http.server 8080 --directory tests"
 	},
 	"devDependencies": {
+		"@eslint/js": "^9.33.0",
 		"@types/chrome": "^0.0.268",
+		"@types/eslint__js": "^8.42.3",
 		"@types/node": "^20.14.12",
 		"eslint": "^9.7.0",
+		"eslint-plugin-jsdoc": "^54.1.0",
 		"neostandard": "^0.12.2",
-		"typescript": "^5.5.4"
+		"typescript": "^5.5.4",
+		"typescript-eslint": "^8.40.0"
 	},
 	"engines": {
 		"node": ">=18.0.0"

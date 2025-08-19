@@ -1,4 +1,4 @@
-/** @fileoverview Video interaction functions */
+/** @file Video interaction functions */
 
 /** @typedef {Document & { webkitFullscreenElement?: Element | null; webkitExitFullscreen?: () => void; }} ExtendedDocument */
 /** @typedef {HTMLVideoElement & { webkitRequestFullscreen?: () => void; }} ExtendedVideoElement */

@@ -1,4 +1,4 @@
-/** @fileoverview Universal Video Hotkeys - Popup Script */
+/** @file Universal Video Hotkeys - Popup Script */
 
 /** @type {HTMLInputElement | null} */
 let enabled_checkbox = /** @type {HTMLInputElement | null} */ (document.getElementById('enabled_toggle'))
@@ -7,13 +7,16 @@ let sound_checkbox = /** @type {HTMLInputElement | null} */ (document.getElement
 
 /** Update checkbox state @param {boolean} enabled @param {boolean} always_enable_sound */
 let update_checkboxes = (enabled, always_enable_sound) => {
-	if (enabled_checkbox) enabled_checkbox.checked = enabled
-	if (sound_checkbox) sound_checkbox.checked = always_enable_sound
+	if (enabled_checkbox)
+		enabled_checkbox.checked = enabled
+	if (sound_checkbox)
+		sound_checkbox.checked = always_enable_sound
 }
 
 /** Handle enabled toggle change */
 let handle_enabled_change = () => {
-	if (!enabled_checkbox) return
+	if (!enabled_checkbox)
+		return
 	let new_state = enabled_checkbox.checked
 	chrome.storage.sync.set({ enabled: new_state })
 	console.log('Extension toggled:', new_state ? 'enabled' : 'disabled')
@@ -21,7 +24,8 @@ let handle_enabled_change = () => {
 
 /** Handle sound toggle change */
 let handle_sound_change = () => {
-	if (!sound_checkbox) return
+	if (!sound_checkbox)
+		return
 	let new_state = sound_checkbox.checked
 	chrome.storage.sync.set({ always_enable_sound: new_state })
 	console.log('Always enable sound toggled:', new_state ? 'enabled' : 'disabled')
@@ -37,5 +41,7 @@ chrome.storage.sync.get(['enabled', 'always_enable_sound'], result => {
 })
 
 // Add change listeners
-if (enabled_checkbox) enabled_checkbox.addEventListener('change', handle_enabled_change)
-if (sound_checkbox) sound_checkbox.addEventListener('change', handle_sound_change)
+if (enabled_checkbox)
+	enabled_checkbox.addEventListener('change', handle_enabled_change)
+if (sound_checkbox)
+	sound_checkbox.addEventListener('change', handle_sound_change)

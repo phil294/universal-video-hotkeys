@@ -1,4 +1,4 @@
-/** @fileoverview Universal Video Hotkeys - Content Script */
+/** @file Universal Video Hotkeys - Content Script */
 
 import {
 	setup_double_click_fullscreen,
@@ -6,7 +6,7 @@ import {
 } from './video.js'
 
 /** @typedef {EventTarget & { tagName?: string; isContentEditable?: boolean; }} ExtendedEventTarget */
-/** @typedef {Object} VideoState @property {HTMLVideoElement} element */
+/** @typedef {object} VideoState @property {HTMLVideoElement} element */
 
 /** @type {VideoState | null} */
 let current_video = null
@@ -20,7 +20,7 @@ let observed_roots = new Set()
 let known_videos = new Set()
 
 /** Log function with prefix @param {...any} args */
-let log = (...args) => console.log('[VideoHotkeys]', ...args)
+let log = (...args) => { console.log('[VideoHotkeys]', ...args) }
 
 /** Get the most relevant video element @returns {HTMLVideoElement | null} */
 let get_current_video = () => {
