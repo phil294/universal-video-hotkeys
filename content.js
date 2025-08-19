@@ -15,7 +15,7 @@ let observed_roots = new Set()
 let known_videos = new Set()
 
 /** Log function with prefix @param {unknown[]} args */
-let log = (...args) => { console.log('[VideoHotkeys]', ...args) }
+let log = (...args) => { console.debug('[VideoHotkeys]', ...args) }
 
 /** Get the most relevant video element @returns {HTMLVideoElement | null} */
 let get_current_video = () => {
@@ -51,7 +51,7 @@ let get_current_video = () => {
 let update_current_video = () => {
 	let video = get_current_video()
 	if (video && video !== current_video?.element) {
-		log('Active video changed:', video.src || video.currentSrc || 'unknown source')
+		log('Active video changed:', video.src || video.currentSrc || 'unknown source', video.src ? undefined : video)
 		current_video = { element: video }
 
 		if (always_enable_sound) {
@@ -104,16 +104,21 @@ let observe_root_recursively = root => {
 	observed_roots.add(root)
 
 	root.addEventListener('keydown', handle_keydown, true)
-	log('Added keyboard listener to root:', root === document ? 'document' : 'shadow DOM')
 
 	let elements = root.querySelectorAll('*')
 	for (let element of elements) {
-		if (element.tagName === 'VIDEO' && element instanceof HTMLVideoElement)
+		if (element.tagName === 'VIDEO' && element instanceof HTMLVideoElement) {
+			log('Found video:', element.src || element.currentSrc || 'unknown source', element.src ? undefined : element)
 			known_videos.add(element)
-		if (element.shadowRoot)
+		}
+		if (element.shadowRoot) {
+			log('Observing shadow root:', element.tagName)
 			observe_root_recursively(element.shadowRoot)
-		if (element.tagName === 'IFRAME' && element instanceof HTMLIFrameElement && element.contentDocument)
+		}
+		if (element.tagName === 'IFRAME' && element instanceof HTMLIFrameElement && element.contentDocument) {
+			log('Observing iframe:', element.src || 'unknown source', element.src ? undefined : element)
 			observe_root_recursively(element.contentDocument)
+		}
 	}
 
 	let observer = new MutationObserver(mutations => {
@@ -126,15 +131,20 @@ let observe_root_recursively = root => {
 						let element = node
 
 						if (element.tagName === 'VIDEO' && element instanceof HTMLVideoElement) {
+							log('Mutation: New video:', element.src || element.currentSrc || 'unknown source')
 							known_videos.add(element)
 							should_update = true
 						}
 
-						if (element.shadowRoot)
+						if (element.shadowRoot) {
+							log('Mutation: Observing shadow root:', element.tagName)
 							observe_root_recursively(element.shadowRoot)
+						}
 
-						if (element.tagName === 'IFRAME' && element instanceof HTMLIFrameElement && element.contentDocument)
+						if (element.tagName === 'IFRAME' && element instanceof HTMLIFrameElement && element.contentDocument) {
+							log('Mutation: Observing iframe:', element.src || 'unknown source', element.src ? undefined : element)
 							observe_root_recursively(element.contentDocument)
+						}
 					}
 
 		if (should_update)
@@ -142,12 +152,11 @@ let observe_root_recursively = root => {
 	})
 
 	observer.observe(root, { childList: true, subtree: true })
-	log('MutationObserver setup for root:', root === document ? 'document' : 'shadow DOM')
 }
 
 /** Initialize extension */
 let init = () => {
-	log('Initializing comprehensive video detection')
+	log('Init')
 
 	void browser.storage.sync.get(['enabled', 'always_enable_sound']).then(result => {
 		if (browser.runtime.lastError) {
@@ -162,13 +171,16 @@ let init = () => {
 		log('Always enable sound:', always_enable_sound)
 	})
 
+	log('Observing root document')
+	// console.time('init')
 	observe_root_recursively(document)
+	// console.timeEnd('init')
 	update_current_video()
 
 	browser.storage.onChanged.addListener(changes => {
 		if (changes['enabled']) {
 			extension_enabled = Boolean(changes['enabled'].newValue)
-			log('Extension toggled:', extension_enabled ? 'enabled' : 'disabled')
+			log('Extension enabled toggled:', extension_enabled ? 'enabled' : 'disabled')
 		}
 		if (changes['always_enable_sound']) {
 			always_enable_sound = Boolean(changes['always_enable_sound'].newValue)
