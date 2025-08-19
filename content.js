@@ -24,9 +24,9 @@ let get_current_video = () => {
 
 	let videos = Array.from(known_videos)
 
-	let playing = videos.find(v => !v.paused && !v.ended)
-	if (playing)
-		return playing
+	let playing = videos.filter(v => !v.paused && !v.ended)
+	if (playing.length === 1)
+		return playing[0] ?? null
 
 	let in_viewport = videos
 		.filter(v => {
@@ -59,8 +59,6 @@ let update_current_video = () => {
 			video.volume = 1.0
 			log('Force sound: unmuted and volume set to 100%')
 		}
-
-		globalThis.setup_double_click_fullscreen(video)
 	}
 }
 
@@ -110,6 +108,7 @@ let observe_root_recursively = root => {
 		if (element.tagName === 'VIDEO' && element instanceof HTMLVideoElement) {
 			log('Found video:', element.src || element.currentSrc || 'unknown source', element.src ? undefined : element)
 			known_videos.add(element)
+			globalThis.setup_double_click_fullscreen(element)
 		}
 		if (element.shadowRoot) {
 			log('Observing shadow root:', element.tagName)
@@ -133,6 +132,7 @@ let observe_root_recursively = root => {
 						if (element.tagName === 'VIDEO' && element instanceof HTMLVideoElement) {
 							log('Mutation: New video:', element.src || element.currentSrc || 'unknown source')
 							known_videos.add(element)
+							globalThis.setup_double_click_fullscreen(element)
 							should_update = true
 						}
 

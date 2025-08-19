@@ -116,6 +116,19 @@ globalThis.toggle_fullscreen = video => {
 
 /** Handle video navigation shortcuts @param {KeyboardEvent} event @param {HTMLVideoElement} video @returns {boolean} */
 globalThis.handle_shortcuts = (event, video) => {
+	if (event.altKey || event.ctrlKey || event.metaKey)
+		return false
+	if (event.shiftKey) {
+		switch (event.code) {
+			case 'Period':
+				globalThis.change_speed(video, 1)
+				return true
+			case 'Comma':
+				globalThis.change_speed(video, -1)
+				return true
+		}
+		return false
+	}
 	switch (event.code) {
 		case 'Space':
 			globalThis.toggle_play_pause(video)
@@ -151,18 +164,6 @@ globalThis.handle_shortcuts = (event, video) => {
 			video.muted = !video.muted
 			console.log('[VideoHotkeys] Mute toggled:', video.muted ? 'muted' : 'unmuted')
 			return true
-		case 'Period':
-			if (event.shiftKey) {
-				globalThis.change_speed(video, 1)
-				return true
-			}
-			break
-		case 'Comma':
-			if (event.shiftKey) {
-				globalThis.change_speed(video, -1)
-				return true
-			}
-			break
 		case 'Digit0': case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4':
 		case 'Digit5': case 'Digit6': case 'Digit7': case 'Digit8': case 'Digit9': {
 			let digit = parseInt(event.code.slice(-1), 10)
