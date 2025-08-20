@@ -1,3 +1,6 @@
+// @ts-expect-error google stinks
+window.browser ??= window.chrome
+
 /** @type {boolean} */
 let extension_enabled = true
 /** @type {Set<Document | ShadowRoot>} */
@@ -294,32 +297,9 @@ function observe_shadow_root_attachments (/** @type {Document} */ root, /** @typ
 		return
 	let script_element = root.createElement('script')
 	script_element.id = '__video_hotkeys_shadow_attach_hook'
-	script_element.textContent =
-		`(() => {
-			if (window.__video_hotkeys_shadow_attach_hooked)
-				return
-			window.__video_hotkeys_shadow_attach_hooked = true
-			let original = Element.prototype.attachShadow
-			function dispatch(/** @type {Element} */ host, /** @type {ShadowRoot | null} */ shadow) {
-				try {
-					window.top.dispatchEvent(new CustomEvent('video_hotkeys_shadow_root_attached', {
-						detail: { host, shadow }
-					}))
-				} catch (err) {
-					console.debug('[UniversalVideoHotkeys] Failed to dispatch shadow root attached custom event', err)
-				}
-			}
-			Element.prototype.attachShadow = function (/** @type {ShadowRootInit} */ root_init) {
-				let shadow = original.call(this, root_init)
-				dispatch(this, shadow)
-				return shadow
-			}
-			queueMicrotask(() => {
-				for (let el of document.querySelectorAll('*'))
-					if (el.shadowRoot)
-						dispatch(el, el.shadowRoot)
-			})
-		})()`
+	// Use extension URL to avoid inline script blocked by CSP (Chrome). File listed in web_accessible_resources.
+	let path = browser.runtime.getURL('shadow-hook.js')
+	script_element.src = path
 	root.documentElement.appendChild(script_element)
 	log('Injected shadow attach root hook into', origin, 'at', root.location.href)
 }

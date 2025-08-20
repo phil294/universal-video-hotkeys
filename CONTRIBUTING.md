@@ -9,17 +9,19 @@
 
 ### Firefox
 1. Navigate to `about:debugging`
-2. Click "This Firefox"
-3. Click "Load Temporary Add-on"
-4. Select the `manifest.json` file
+1. Click "This Firefox"
+1. Click "Load Temporary Add-on"
+1. Select the `manifest.json` file
 
 ### Chrome
 1. **Open Chrome** and navigate to `chrome://extensions/`
-2. **Enable Developer mode** (toggle in top-right corner)
-3. **Click "Load unpacked"** and select the project folder
+1. **Enable Developer mode** (toggle in top-right corner)
+1. **Click "Load unpacked"** and select the project folder
 
-5. **Visit any website** with videos (YouTube, Vimeo, etc.)
-6. **Test the shortcuts** - they should work immediately!
+### Using
+
+5. **Visit any website** with videos
+6. **Test the shortcuts** - they should work immediately
 
 ## Architecture Overview
 

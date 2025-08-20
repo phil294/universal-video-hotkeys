@@ -1,3 +1,6 @@
+// @ts-expect-error google stinks
+window.browser ??= window.chrome
+
 let get_checkbox = (/** @type {string} */ id) => {
 	let el = document.getElementById(id)
 	if (!(el instanceof HTMLInputElement))

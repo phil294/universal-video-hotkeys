@@ -22,6 +22,12 @@
 			"all_frames": true
 		}
 	],
+	"web_accessible_resources": [
+		{
+			"resources": ["shadow-hook.js"],
+			"matches": ["<all_urls>"]
+		}
+	],
 	"action": {
 		"default_popup": "popup.html",
 		"default_title": "Universal Video Hotkeys"
