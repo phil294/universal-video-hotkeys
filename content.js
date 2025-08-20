@@ -21,11 +21,23 @@ let log = (...args) => { console.debug('[UniversalVideoHotkeys]', ...args) }
 
 // Pure instanceofs can fail across iframes / Firefox Xrays. The below helper functions are cross-realm safe.
 /** @param {Element} el @returns {el is HTMLVideoElement} */
-let is_video_element = el =>
+let element_is_video = el =>
 	el.nodeName === 'VIDEO' && 'play' in el
 /** @param {Element} el @returns {el is HTMLIFrameElement} */
-let is_iframe_element = el =>
+let element_is_iframe = el =>
 	el.nodeName === 'IFRAME'
+/** @param {Document | ShadowRoot} el @returns {el is ShadowRoot} */
+let doc_is_shadow_root = el =>
+	el.constructor.name === 'ShadowRoot'
+/** @param {Node} node @returns {node is Element} */
+let node_is_element = node =>
+	node.nodeType === Node.ELEMENT_NODE
+/** @param {EventTarget} target @returns {target is HTMLElement} */
+let event_target_is_html = target =>
+	'inert' in target && 'innerText' in target && 'autocorrect' in target
+/** @param {Event} event @returns {event is KeyboardEvent} */
+let event_is_keyboard = event =>
+	'key' in event
 
 /** Get the most relevant video element @returns {HTMLVideoElement | null} */
 let get_current_video = () => {
@@ -75,19 +87,16 @@ let update_current_video = () => {
 /** Check if event target is an input element @param {Event} event @returns {boolean} */
 let is_input_target = event => {
 	let target = event.target
-	if (!(target instanceof HTMLElement))
+	if (!target || !event_target_is_html(target))
 		return false
-
-	let tag_name = target.tagName
-	if (tag_name && ['INPUT', 'TEXTAREA', 'SELECT'].includes(tag_name))
+	if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
 		return true
-
 	return target.isContentEditable
 }
 
 /** Handle keyboard events @param {Event} event */
 let handle_keydown = event => {
-	if (!(event instanceof KeyboardEvent))
+	if (!event_is_keyboard(event))
 		return
 
 	if (!extension_enabled || !current_video)
@@ -110,7 +119,7 @@ function observe_root_recursively (/** @type {Document | ShadowRoot} */ root, /*
 	if (observed_roots.has(root))
 		return
 	observed_roots.add(root)
-	let root_title = root instanceof ShadowRoot ? 'shadow:' + root.host.tagName : root.nodeName
+	let root_title = doc_is_shadow_root(root) ? 'shadow:' + root.host.tagName : root.nodeName
 	log('Observing new root:', root_title, 'origin:', origin, ', total:', observed_roots.size)
 
 	root.addEventListener('keydown', handle_keydown, true)
@@ -128,7 +137,7 @@ function observe_root_recursively (/** @type {Document | ShadowRoot} */ root, /*
 		for (let mutation of mutations)
 			if (mutation.type === 'childList')
 				for (let node of mutation.addedNodes)
-					if (node.nodeType === Node.ELEMENT_NODE && node instanceof Element)
+					if (node_is_element(node))
 						if (handle_new_element(node, 'mutation'))
 							should_update = true
 		if (should_update)
@@ -140,7 +149,7 @@ function observe_root_recursively (/** @type {Document | ShadowRoot} */ root, /*
 
 /** Handle a newly encountered element. Returns true if this call added a video. */
 function handle_new_element (/** @type {Element} */ element, /** @type {'scan' | 'mutation'} */ origin) {
-	if (is_video_element(element)) {
+	if (element_is_video(element)) {
 		if (!known_videos.has(element)) {
 			log(origin + ': New video', element.src || element.currentSrc || element.src || element)
 			known_videos.add(element)
@@ -169,7 +178,7 @@ function handle_new_element (/** @type {Element} */ element, /** @type {'scan' |
 			})
 		}
 	}
-	if (is_iframe_element(element)) {
+	if (element_is_iframe(element)) {
 		if (element.contentDocument) {
 			observe_root_recursively(element.contentDocument, origin + ': iframe ' + element.src)
 			observe_shadow_root_attachments(element.contentDocument, origin + ': iframe ' + element.src)
