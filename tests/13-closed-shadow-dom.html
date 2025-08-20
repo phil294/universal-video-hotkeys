@@ -5,9 +5,8 @@
 
 <script>
 let host = document.getElementById('closed-shadow-host')
-// Create closed shadow root
+console.warn('attaching in test case')
 let shadow = host.attachShadow({ mode: 'closed' })
-// Immediately populate with video
 shadow.innerHTML = `
 	<video controls width="600" height="400" src="test-video.mp4"></video>
 `

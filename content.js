@@ -239,45 +239,37 @@ window.addEventListener('video_hotkeys_shadow_root_attached', event => {
 	}
 })
 
-let init = () => {
-	log('Init')
+void browser.storage.sync.get(['enabled', 'always_enable_sound']).then(result => {
+	if (browser.runtime.lastError) {
+		log('Storage error:', browser.runtime.lastError)
+		extension_enabled = true
+		always_enable_sound = false
+	} else {
+		extension_enabled = result['enabled'] !== false
+		always_enable_sound = result['always_enable_sound'] === true
+	}
+	log('Extension enabled:', extension_enabled)
+	log('Always enable sound:', always_enable_sound)
+})
 
-	void browser.storage.sync.get(['enabled', 'always_enable_sound']).then(result => {
-		if (browser.runtime.lastError) {
-			log('Storage error:', browser.runtime.lastError)
-			extension_enabled = true
-			always_enable_sound = false
-		} else {
-			extension_enabled = result['enabled'] !== false
-			always_enable_sound = result['always_enable_sound'] === true
-		}
-		log('Extension enabled:', extension_enabled)
-		log('Always enable sound:', always_enable_sound)
-	})
+log('Init')
 
-	// Needs to happen early as this hooks into prototype in host page
-	observe_shadow_root_attachments(document, 'root document')
+// Needs to happen early as this hooks into prototype in host page
+observe_shadow_root_attachments(document, 'root document')
 
-	// console.time('init')
-	observe_root_recursively(document, 'root document')
-	// console.timeEnd('init')
+// console.time('init')
+observe_root_recursively(document, 'root document')
+// console.timeEnd('init')
 
-	window.addEventListener('scroll', update_current_video_debounced, { passive: true })
+window.addEventListener('scroll', update_current_video_debounced, { passive: true })
 
-	browser.storage.onChanged.addListener(changes => {
-		if (changes['enabled']) {
-			extension_enabled = Boolean(changes['enabled'].newValue)
-			log('Extension enabled toggled:', extension_enabled ? 'enabled' : 'disabled')
-		}
-		if (changes['always_enable_sound']) {
-			always_enable_sound = Boolean(changes['always_enable_sound'].newValue)
-			log('Always enable sound toggled:', always_enable_sound ? 'enabled' : 'disabled')
-		}
-	})
-}
-
-// Start as early as possible
-if (document.readyState === 'loading')
-	document.addEventListener('DOMContentLoaded', init)
-else
-	init()
+browser.storage.onChanged.addListener(changes => {
+	if (changes['enabled']) {
+		extension_enabled = Boolean(changes['enabled'].newValue)
+		log('Extension enabled toggled:', extension_enabled ? 'enabled' : 'disabled')
+	}
+	if (changes['always_enable_sound']) {
+		always_enable_sound = Boolean(changes['always_enable_sound'].newValue)
+		log('Always enable sound toggled:', always_enable_sound ? 'enabled' : 'disabled')
+	}
+})

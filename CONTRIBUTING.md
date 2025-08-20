@@ -24,7 +24,7 @@ The `get_current_video()` function prioritizes:
 
 #### Video Tracking
 
-Keeps a Set of all video elements of the page, of all iframes and shadow doms, also nested. Keeps watching for new video elements/iframe/shadow recursively using MutationObservers. To keep the video elements set up to date, we need custom observer logic, that's why the manifest does *not* have the `all_frames` option active - it would result in unnecessary duplicate scanning. Also some extra injections and hooks are in place (all in `content.js`) so there are refs even on closed shadow doms. Avoid `instanceof` checks: This is unreliable across iframes.
+Keeps a Set of all video elements of the page, of all iframes and shadow doms, also nested. Keeps watching for new video elements/iframe/shadow recursively using MutationObservers. To keep the video elements set up to date, we need custom observer logic, that's why the manifest does *not* have the `all_frames` option active - it would result in unnecessary duplicate scanning and fails to work for global hotkeys on the root level. Maybe this could be solved with sophisticated message passing though. Also some extra injections and hooks are in place (all in `content.js`) so there are refs even on closed shadow doms. Also the extension runs at document_start so the `attachShadow` hook can be injected before any script from the webpage itself runs. Avoid `instanceof` checks: This is unreliable across iframes.
 
 ### Code aesthetics
 

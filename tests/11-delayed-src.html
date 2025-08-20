@@ -1,16 +1,10 @@
 <title>11 - Delayed Src Attribute</title>
-<p>Video element exists immediately but src is set after 3 seconds. Test hotkeys after the src loads.</p>
+<p>Video element exists immediately but its src is set after 3 seconds. Test hotkeys after the src loads.</p>
 
-<video id="test-video" controls width="600" height="400">
-	<p>Your browser doesn't support HTML5 video.</p>
-</video>
-
-<p id="status">Video element created, waiting 3 seconds to set src...</p>
+<video id="test-video" controls width="600" height="400"></video>
 
 <script>
 setTimeout(() => {
-	let video = document.getElementById('test-video')
-	video.src = 'test-video.mp4'
-	document.getElementById('status').textContent = 'Src attribute set! Video should now be playable.'
+	document.getElementById('test-video').src = 'test-video.mp4'
 }, 3000)
 </script>
