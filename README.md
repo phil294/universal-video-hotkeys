@@ -4,6 +4,11 @@ A browser extension that brings YouTube-style keyboard shortcuts to all video pl
 
 This is the only browser extension of its kind that actually works, and it works *everywhere* (somewhat WIP).
 
+## Install
+
+- Firefox: https://addons.mozilla.org/en-US/firefox/addon/universal-video-hotkeys/
+- Chrome: tbd
+
 ## Features
 
 - **Smart video detection**: Automatically targets the most relevant video in viewport
