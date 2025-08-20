@@ -135,10 +135,10 @@ globalThis.handle_shortcuts = (event, video) => {
 			globalThis.toggle_play_pause(video)
 			return true
 		case 'ArrowLeft':
-			globalThis.seek_video(video, -5)
+			globalThis.seek_video(video, -5 * video.playbackRate)
 			return true
 		case 'ArrowRight':
-			globalThis.seek_video(video, 5)
+			globalThis.seek_video(video, 5 * video.playbackRate)
 			return true
 		case 'ArrowUp':
 			if (document.activeElement === video || document.fullscreenElement === video) {
