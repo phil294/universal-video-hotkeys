@@ -164,32 +164,36 @@ let is_input_target = event => {
 	return target.isContentEditable
 }
 
-/** Handle keyboard events @param {Event} event */
-let handle_keydown = event => {
+let event_to_action = (/** @type {Event} */ event) => {
 	if (!extension_enabled || !event_is_keyboard(event) || is_input_target(event))
-		return
+		return null
 	if (event.altKey || event.ctrlKey || event.metaKey)
-		return
+		return null
 	update_current_video()
-	if (active_source === 'local') {
-		if (!current_local_video)
-			return
-		let handled_local = globalThis.handle_shortcuts(event, current_local_video)
-		if (handled_local) {
-			event.preventDefault()
-			event.stopPropagation()
-		}
+	let video = active_source === 'local' ? current_local_video : current_remote_video
+	let playback_rate = active_source === 'local' ? current_local_video?.playbackRate : current_remote_video?.playback_rate
+	if (!video || !playback_rate)
+		return
+	return globalThis.interpret_shortcut(event, { playback_rate, can_volume: document.activeElement === video || document.fullscreenElement === video })
+}
+let handle_keydown = (/** @type {Event} */ event) => {
+	let action = event_to_action(event)
+	if (!action)
+		return
+	event.preventDefault()
+	event.stopImmediatePropagation()
+	if (active_source === 'local' && current_local_video) {
+		globalThis.execute_action(current_local_video, action)
 		return
 	}
-	// Remote
-	if (!current_remote_video)
+	if (current_remote_video)
+		current_remote_video.iframe.contentWindow?.postMessage({ uvh: true, type: 'action', frame_id: current_remote_video.frame_id, video_id: current_remote_video.video_id, action }, '*')
+}
+let handle_keyup = (/** @type {Event} */ event) => {
+	if (!event_to_action(event))
 		return
-	let interpreted = globalThis.interpret_shortcut(event, { playback_rate: current_remote_video.playback_rate, can_volume: true })
-	if (!interpreted)
-		return
-	current_remote_video.iframe.contentWindow?.postMessage({ uvh: true, type: 'action', frame_id: current_remote_video.frame_id, video_id: current_remote_video.video_id, action: interpreted }, '*')
 	event.preventDefault()
-	event.stopPropagation()
+	event.stopImmediatePropagation()
 }
 
 /** For a document/shadow root, recursively populate known_videos with video tags, setup observers for dom changes and start key listeners */
@@ -200,8 +204,10 @@ function observe_root_recursively (/** @type {Document | ShadowRoot} */ root, /*
 	let root_title = doc_is_shadow_root(root) ? 'shadow:' + root.host.tagName : root.nodeName
 	log('Observing new root:', root_title, 'origin:', origin, ', total:', observed_roots.size)
 
-	if (allow_keyboard_listeners)
+	if (allow_keyboard_listeners) {
 		root.addEventListener('keydown', handle_keydown, true)
+		root.addEventListener('keyup', handle_keyup, true)
+	}
 
 	let elements = root.querySelectorAll('*')
 	for (let element of elements)

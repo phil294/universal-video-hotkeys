@@ -162,12 +162,3 @@ globalThis.execute_action = (video, d) => {
 		case 'toggle_mute': video.muted = !video.muted; _log('Mute toggled:', video.muted ? 'muted' : 'unmuted'); break
 	}
 }
-
-/** Handle video navigation shortcuts using interpret_shortcut @param {KeyboardEvent} event @param {HTMLVideoElement} video @returns {boolean} */
-globalThis.handle_shortcuts = (event, video) => {
-	let d = globalThis.interpret_shortcut(event, { playback_rate: video.playbackRate, can_volume: document.activeElement === video || document.fullscreenElement === video })
-	if (!d)
-		return false
-	globalThis.execute_action(video, d)
-	return true
-}
