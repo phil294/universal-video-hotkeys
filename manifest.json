@@ -17,6 +17,13 @@
 	"content_scripts": [
 		{
 			"matches": ["<all_urls>"],
+			"js": ["shadow-hook.js"],
+			"run_at": "document_start",
+			"all_frames": true,
+			"world": "MAIN"
+		},
+		{
+			"matches": ["<all_urls>"],
 			"js": ["video.js", "content.js"],
 			"run_at": "document_start",
 			"all_frames": true

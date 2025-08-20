@@ -99,6 +99,8 @@ let element_is_iframe = el =>
 /** @param {Document | ShadowRoot} el @returns {el is ShadowRoot} */
 let doc_is_shadow_root = el =>
 	el.constructor.name === 'ShadowRoot'
+/** @param {unknown} x @returns {x is ShadowRoot} */
+let is_shadow_root_loose = x => !!x && typeof x === 'object' && 'host' in x && 'mode' in x
 /** @param {Node} node @returns {node is Element} */
 let node_is_element = node =>
 	node.nodeType === Node.ELEMENT_NODE
@@ -295,34 +297,56 @@ function handle_new_element (/** @type {Element} */ element, /** @type {'scan' |
 function observe_shadow_root_attachments (/** @type {Document} */ root, /** @type {string} */ origin) {
 	if (root.getElementById('__video_hotkeys_shadow_attach_hook'))
 		return
+	// If the hook was pre-injected by manifest as a main world content script, it will already have set the flag on window.
+	let default_view = root.defaultView
+	if (default_view && typeof default_view === 'object' && '__video_hotkeys_shadow_attach_hooked' in default_view) {
+		// Create a lightweight marker element to avoid future attempts.
+		let marker = root.createElement('meta')
+		marker.id = '__video_hotkeys_shadow_attach_hook'
+		root.documentElement.appendChild(marker)
+		return
+	}
 	let script_element = root.createElement('script')
 	script_element.id = '__video_hotkeys_shadow_attach_hook'
-	// Use extension URL to avoid inline script blocked by CSP (Chrome). File listed in web_accessible_resources.
 	let path = browser.runtime.getURL('shadow-hook.js')
 	script_element.src = path
 	root.documentElement.appendChild(script_element)
 	log('Injected shadow attach root hook into', origin, 'at', root.location.href)
+	// Add a listener on this document to capture bubbled host events inside same-origin iframes (they do not escape iframe boundary)
+	if (!('___uvh_shadow_listener_attached' in root)) {
+		// @ts-expect-error expando flag
+		root.___uvh_shadow_listener_attached = true
+		root.addEventListener('video_hotkeys_shadow_root_attached', event => {
+			let target = event.target
+			if (!target || typeof target !== 'object')
+				return
+			if ('shadowRoot' in target && is_shadow_root_loose(target.shadowRoot))
+				observe_root_recursively(target.shadowRoot, 'shadow attach hook shadow open intermediate iframe')
+			else if ('__uvh_closed_shadow_root' in target) {
+				let closed_shadow = target.__uvh_closed_shadow_root
+				if (is_shadow_root_loose(closed_shadow) && target instanceof Element && !closed_shadow_root_by_host.get(target)) {
+					closed_shadow_root_by_host.set(target, closed_shadow)
+					observe_root_recursively(closed_shadow, 'shadow attach hook shadow closed intermediate iframe')
+				}
+			}
+		}, false)
+	}
 }
 window.addEventListener('video_hotkeys_shadow_root_attached', event => {
-	// eslint-disable-next-line custom--no-jsdoc-cast/no-jsdoc-cast
-	let { detail: { shadow, host } } = /** @type {CustomEvent<{ host?: Element | null, shadow?: ShadowRoot | null }>} */ (event)
-	if (shadow) {
-		if (host && !host.shadowRoot) {
-			log('Shadow attach hook: host without shadowRoot, storing closed shadow root for', host.tagName)
-			closed_shadow_root_by_host.set(host, shadow)
-		}
-		observe_root_recursively(shadow, 'shadow attach hook shadow')
+	let target = event.target
+	if (!target || typeof target !== 'object')
 		return
-	}
-	if (host) {
-		let closed_shadow = closed_shadow_root_by_host.get(host)
-		if (closed_shadow) {
-			observe_root_recursively(closed_shadow, 'shadow attach hook closed map')
-			return
+	if ('shadowRoot' in target && is_shadow_root_loose(target.shadowRoot))
+		observe_root_recursively(target.shadowRoot, 'shadow attach hook shadow open')
+	try {
+		if ('__uvh_closed_shadow_root' in target) {
+			let closed_shadow = target.__uvh_closed_shadow_root
+			if (is_shadow_root_loose(closed_shadow) && target instanceof Element && !closed_shadow_root_by_host.get(target)) {
+				closed_shadow_root_by_host.set(target, closed_shadow)
+				observe_root_recursively(closed_shadow, 'shadow attach hook shadow closed')
+			}
 		}
-		if (host.shadowRoot)
-			observe_root_recursively(host.shadowRoot, 'shadow attach hook host shadow')
-	}
+	} catch {}
 })
 
 void browser.storage.sync.get(['globally_enabled', 'disabled_hosts']).then(result => {

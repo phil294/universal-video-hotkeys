@@ -8,9 +8,12 @@
 	let original = Element.prototype.attachShadow
 	function dispatch (/** @type {Element} */ host, /** @type {ShadowRoot | null} */ shadow) {
 		try {
-			window.top?.dispatchEvent(new CustomEvent('video_hotkeys_shadow_root_attached', {
-				detail: { host, shadow }
-			}))
+			// store closed shadow root reference for later retrieval across realms if needed
+			if (shadow && shadow.mode === 'closed')
+				// @ts-expect-error store closed shadow root reference on host element
+				host.__uvh_closed_shadow_root = shadow
+			// Bubble an event from host so content script can read event.target without relying on CustomEvent detail (stripped in Chrome isolated world)
+			host.dispatchEvent(new Event('video_hotkeys_shadow_root_attached', { bubbles: true }))
 		} catch (err) {
 			console.debug('[UniversalVideoHotkeys] Failed to dispatch shadow root attached custom event', err)
 		}
