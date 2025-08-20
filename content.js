@@ -1,11 +1,7 @@
-/** @file Universal Video Hotkeys - Content Script */
-
 /** @type {HTMLVideoElement | null} */
 let current_video = null
 /** @type {boolean} */
 let extension_enabled = true
-/** @type {boolean} */
-let always_enable_sound = false
 /** @type {Set<Document | ShadowRoot>} */
 let observed_roots = new Set()
 /** @type {Set<HTMLVideoElement>} */
@@ -70,12 +66,6 @@ let update_current_video = () => {
 	if (video && video !== current_video) {
 		log('Active video changed:', video.src || video.currentSrc || 'unknown source', video.src ? undefined : video)
 		current_video = video
-
-		if (always_enable_sound) {
-			video.muted = false
-			video.volume = 1.0
-			log('Force sound: unmuted and volume set to 100%')
-		}
 	}
 }
 let update_current_video_debouncer = -1
@@ -104,6 +94,7 @@ let handle_keydown = event => {
 	if (handled) {
 		event.preventDefault()
 		event.stopPropagation()
+		// After pausing in particular, it might need to be reevaluated based on viewport now
 		update_current_video_debounced()
 	}
 }
@@ -152,7 +143,7 @@ function handle_new_element (/** @type {Element} */ element, /** @type {'scan' |
 		if (closed_shadow)
 			observe_root_recursively(closed_shadow, origin + ': shadow closed map')
 		else if (element.tagName.includes('-')) {
-			// unresolved custom element (no shadow yet)
+			// unresolved custom element (no shadow yet). shouldn't be necessary bc attach hook.
 			log(origin + ': Waiting for custom component without shadowRoot:', element.tagName)
 			void customElements.whenDefined(element.tagName.toLowerCase()).then(() => {
 				if (!element.isConnected)
@@ -239,17 +230,14 @@ window.addEventListener('video_hotkeys_shadow_root_attached', event => {
 	}
 })
 
-void browser.storage.sync.get(['enabled', 'always_enable_sound']).then(result => {
+void browser.storage.sync.get(['enabled']).then(result => {
 	if (browser.runtime.lastError) {
 		log('Storage error:', browser.runtime.lastError)
 		extension_enabled = true
-		always_enable_sound = false
-	} else {
+	} else
 		extension_enabled = result['enabled'] !== false
-		always_enable_sound = result['always_enable_sound'] === true
-	}
+
 	log('Extension enabled:', extension_enabled)
-	log('Always enable sound:', always_enable_sound)
 })
 
 log('Init')
@@ -267,9 +255,5 @@ browser.storage.onChanged.addListener(changes => {
 	if (changes['enabled']) {
 		extension_enabled = Boolean(changes['enabled'].newValue)
 		log('Extension enabled toggled:', extension_enabled ? 'enabled' : 'disabled')
-	}
-	if (changes['always_enable_sound']) {
-		always_enable_sound = Boolean(changes['always_enable_sound'].newValue)
-		log('Always enable sound toggled:', always_enable_sound ? 'enabled' : 'disabled')
 	}
 })
