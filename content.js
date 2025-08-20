@@ -189,7 +189,12 @@ let event_to_action = (/** @type {Event} */ event) => {
 			if (!el)
 				return false
 			let box = el.getBoundingClientRect()
-			return box.top >= video_rect.top - 5 && box.left >= video_rect.left - 5 && box.right <= video_rect.right + 5 && box.bottom <= video_rect.bottom + 5
+			// Vertically positioned inside the video
+			return box.top >= video_rect.top - 5 && box.bottom <= video_rect.bottom + 5 &&
+				// Entirely positioned inside, e.g. video controls in a sibling element. or...
+				((box.left >= video_rect.left - 5 && box.right <= video_rect.right + 5) ||
+					// ...wrapper with horizontal padding such as resolution downscaler (e.g. yt/embed/)
+					el.contains(current_local_video))
 		}
 		can_volume = within(document.activeElement) || within(document.fullscreenElement)
 	}
