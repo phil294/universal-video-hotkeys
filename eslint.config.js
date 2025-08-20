@@ -67,6 +67,7 @@ export default [
 			'custom--snake-case/snake-case': 'error',
 			'no-void': 'off',
 			'@typescript-eslint/no-misused-promises': 'off',
+			'@typescript-eslint/no-confusing-void-expression': 'off',
 		}
 	}
 ]

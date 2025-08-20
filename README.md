@@ -2,7 +2,7 @@
 
 A browser extension that brings YouTube-style keyboard shortcuts to all video players across the web. Also enables double click-to-fullscreen.
 
-This is the only browser extension of its kind that actually works *everywhere* because it recursively observes iframes and shadow doms.
+This is the only browser extension of its kind that actually works *everywhere* because it recursively observes iframes and shadow doms and also works in cross-origin frames.
 
 ## Install
 
