@@ -36,6 +36,7 @@ let show_center_indicator = text => {
 			color: #fff;
 			padding: 8px 14px;
 			border-radius: 4px;
+			max-width: 300px;
 			font: 600 18px/1 system-ui, Arial, sans-serif;
 			z-index: 2147483647;
 			pointer-events: none;
@@ -120,11 +121,20 @@ globalThis.change_speed = (video, direction) => {
 /** Toggle play/pause @param {HTMLVideoElement} video */
 globalThis.toggle_play_pause = video => {
 	if (video.paused) {
-		void video.play()
 		_log('Play')
+		video.play()
+			.catch((/** @type {unknown} */ error) => {
+				let msg = typeof error === 'object' && error != null && ('message' in error) && typeof error.message === 'string'
+					? error.message.includes('interact with the document first')
+						? 'Video playback was blocked by your browser security policy. Please first click on the video once manually.'
+						: 'Video playback failed. Unknown error: ' + error.message
+					: 'Video playback failed. Unknown error: ' + String(error)
+				_log(msg, error)
+				show_center_indicator(msg)
+			})
 	} else {
-		video.pause()
 		_log('Pause')
+		video.pause()
 	}
 }
 

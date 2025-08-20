@@ -6,23 +6,24 @@
 	window.__video_hotkeys_shadow_attach_hooked = true
 	// eslint-disable-next-line @typescript-eslint/unbound-method
 	let original = Element.prototype.attachShadow
-	function dispatch (/** @type {Element} */ host, /** @type {ShadowRoot | null} */ shadow) {
-		try {
-			window.top?.dispatchEvent(new CustomEvent('video_hotkeys_shadow_root_attached', {
-				detail: { host, shadow }
-			}))
-		} catch (err) {
-			console.debug('[UniversalVideoHotkeys] Failed to dispatch shadow root attached custom event', err)
-		}
+	function dispatch (/** @type {Element} */ host) {
+		// Bubble an event from host so content script can read event.target without relying on CustomEvent detail (stripped in Chrome isolated world)
+		host.dispatchEvent(new Event('video_hotkeys_shadow_root_attached', { bubbles: true }))
 	}
 	Element.prototype.attachShadow = function (/** @type {ShadowRootInit} */ root_init) {
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+		if (root_init?.mode === 'closed') {
+			console.warn('[UniversalVideoHotkeys] Forcing shadowRoot open', this, root_init)
+			// force. see 0f4f49b / try-handle-closed-shadow-doms branch for alternative attempts
+			root_init.mode = 'open'
+		}
 		let shadow = original.call(this, root_init)
-		dispatch(this, shadow)
+		dispatch(this)
 		return shadow
 	}
 	queueMicrotask(() => {
 		for (let el of document.querySelectorAll('*'))
 			if (el.shadowRoot)
-				dispatch(el, el.shadowRoot)
+				dispatch(el)
 	})
 })()

@@ -99,6 +99,8 @@ let element_is_iframe = el =>
 /** @param {Document | ShadowRoot} el @returns {el is ShadowRoot} */
 let doc_is_shadow_root = el =>
 	el.constructor.name === 'ShadowRoot'
+/** @param {unknown} x @returns {x is ShadowRoot} */
+let is_shadow_root_loose = x => !!x && typeof x === 'object' && 'host' in x && 'mode' in x
 /** @param {Node} node @returns {node is Element} */
 let node_is_element = node =>
 	node.nodeType === Node.ELEMENT_NODE
@@ -292,38 +294,16 @@ function handle_new_element (/** @type {Element} */ element, /** @type {'scan' |
 }
 
 /** injects a page-world hook to catch shadow root creations. necessary there's no api for that and mutation observer also isn't notified. */
-function observe_shadow_root_attachments (/** @type {Document} */ root, /** @type {string} */ origin) {
-	if (root.getElementById('__video_hotkeys_shadow_attach_hook'))
-		return
-	let script_element = root.createElement('script')
-	script_element.id = '__video_hotkeys_shadow_attach_hook'
-	// Use extension URL to avoid inline script blocked by CSP (Chrome). File listed in web_accessible_resources.
-	let path = browser.runtime.getURL('shadow-hook.js')
-	script_element.src = path
-	root.documentElement.appendChild(script_element)
-	log('Injected shadow attach root hook into', origin, 'at', root.location.href)
-}
-window.addEventListener('video_hotkeys_shadow_root_attached', event => {
-	// eslint-disable-next-line custom--no-jsdoc-cast/no-jsdoc-cast
-	let { detail: { shadow, host } } = /** @type {CustomEvent<{ host?: Element | null, shadow?: ShadowRoot | null }>} */ (event)
-	if (shadow) {
-		if (host && !host.shadowRoot) {
-			log('Shadow attach hook: host without shadowRoot, storing closed shadow root for', host.tagName)
-			closed_shadow_root_by_host.set(host, shadow)
-		}
-		observe_root_recursively(shadow, 'shadow attach hook shadow')
-		return
-	}
-	if (host) {
-		let closed_shadow = closed_shadow_root_by_host.get(host)
-		if (closed_shadow) {
-			observe_root_recursively(closed_shadow, 'shadow attach hook closed map')
+function observe_shadow_root_attachments (/** @type {Document | Window} */ root, /** @type {string} */ origin) {
+	root.addEventListener('video_hotkeys_shadow_root_attached', event => {
+		log('rcv', event)
+		let target = event.target
+		if (!target || typeof target !== 'object' || !('shadowRoot' in target) || !is_shadow_root_loose(target.shadowRoot))
 			return
-		}
-		if (host.shadowRoot)
-			observe_root_recursively(host.shadowRoot, 'shadow attach hook host shadow')
-	}
-})
+		observe_root_recursively(target.shadowRoot, 'shadow attach hook shadow open ' + origin)
+	}, false)
+}
+observe_shadow_root_attachments(window, 'root window')
 
 void browser.storage.sync.get(['globally_enabled', 'disabled_hosts']).then(result => {
 	if (browser.runtime.lastError) {
