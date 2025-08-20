@@ -1,12 +1,12 @@
 <title>06 - Delayed Shadow DOM</title>
-<p>Shadow DOM with video added after 3 seconds. Wait for it, then test hotkeys.</p>
+<p>Shadow DOM with video added after 3 seconds via innerHTML. Wait for it, then test hotkeys.</p>
 
 <div id="shadow-host"></div>
 
 <script>
+let host = document.getElementById('shadow-host')
+let shadow = host.attachShadow({mode: 'open'})
 setTimeout(() => {
-	let host = document.getElementById('shadow-host')
-	let shadow = host.attachShadow({mode: 'open'})
 	shadow.innerHTML = `
 		<video controls width="600" height="400" src="test-video.mp4"></video>
 	`

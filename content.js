@@ -19,6 +19,14 @@ let closed_shadow_root_by_host = new WeakMap()
 /** @param {unknown[]} args */
 let log = (...args) => { console.debug('[UniversalVideoHotkeys]', ...args) }
 
+// Pure instanceofs can fail across iframes / Firefox Xrays. The below helper functions are cross-realm safe.
+/** @param {Element} el @returns {el is HTMLVideoElement} */
+let is_video_element = el =>
+	el.nodeName === 'VIDEO' && 'play' in el
+/** @param {Element} el @returns {el is HTMLIFrameElement} */
+let is_iframe_element = el =>
+	el.nodeName === 'IFRAME'
+
 /** Get the most relevant video element @returns {HTMLVideoElement | null} */
 let get_current_video = () => {
 	if (!known_videos.size)
@@ -107,9 +115,13 @@ function observe_root_recursively (/** @type {Document | ShadowRoot} */ root, /*
 
 	root.addEventListener('keydown', handle_keydown, true)
 
+	let should_update = false
 	let elements = root.querySelectorAll('*')
 	for (let element of elements)
-		handle_new_element(element, 'scan')
+		if (handle_new_element(element, 'scan'))
+			should_update = true
+	if (should_update)
+		update_current_video()
 
 	let observer = new MutationObserver(mutations => {
 		let should_update = false
@@ -128,9 +140,9 @@ function observe_root_recursively (/** @type {Document | ShadowRoot} */ root, /*
 
 /** Handle a newly encountered element. Returns true if this call added a video. */
 function handle_new_element (/** @type {Element} */ element, /** @type {'scan' | 'mutation'} */ origin) {
-	if (element instanceof HTMLVideoElement) {
+	if (is_video_element(element)) {
 		if (!known_videos.has(element)) {
-			log(origin + ': New video', element.src || element.currentSrc || element)
+			log(origin + ': New video', element.src || element.currentSrc || element.src || element)
 			known_videos.add(element)
 			globalThis.setup_double_click_fullscreen(element)
 			return true
@@ -157,23 +169,27 @@ function handle_new_element (/** @type {Element} */ element, /** @type {'scan' |
 			})
 		}
 	}
-	if (element instanceof HTMLIFrameElement) {
-		if (element.contentDocument)
+	if (is_iframe_element(element)) {
+		if (element.contentDocument) {
 			observe_root_recursively(element.contentDocument, origin + ': iframe ' + element.src)
+			observe_shadow_root_attachments(element.contentDocument, origin + ': iframe ' + element.src)
+		}
 		// Load listener to catch delayed availability or navigations
 		element.addEventListener('load', () => {
-			if (element.contentDocument)
+			if (element.contentDocument) {
 				observe_root_recursively(element.contentDocument, origin + ': iframe onload ' + element.src)
+				observe_shadow_root_attachments(element.contentDocument, origin + ': iframe onload ' + element.src)
+			}
 		}, { once: false })
 	}
 	return false
 }
 
 /** injects a page-world hook to catch shadow root creations. necessary there's no api for that and mutation observer also isn't notified. */
-function observe_shadow_root_attachments () {
-	if (document.getElementById('__video_hotkeys_shadow_attach_hook'))
+function observe_shadow_root_attachments (/** @type {Document} */ root, /** @type {string} */ origin) {
+	if (root.getElementById('__video_hotkeys_shadow_attach_hook'))
 		return
-	let script_element = document.createElement('script')
+	let script_element = root.createElement('script')
 	script_element.id = '__video_hotkeys_shadow_attach_hook'
 	script_element.textContent =
 		`(() => {
@@ -184,7 +200,7 @@ function observe_shadow_root_attachments () {
 			function dispatch(/** @type {Element} */ host, /** @type {ShadowRoot | null} */ shadow) {
 				try {
 					window.dispatchEvent(new CustomEvent('video_hotkeys_shadow_root_attached', {
-						host, shadow
+						detail: { host, shadow }
 					}))
 				} catch (err) {
 					console.debug('[UniversalVideoHotkeys] Failed to dispatch shadow root attached custom event', err)
@@ -201,14 +217,12 @@ function observe_shadow_root_attachments () {
 						dispatch(el, el.shadowRoot)
 			})
 		})()`
-	document.documentElement.appendChild(script_element)
-	log('Injected shadow attach root hook')
+	root.documentElement.appendChild(script_element)
+	log('Injected shadow attach root hook into', origin, 'at', root.location.href)
 }
 window.addEventListener('video_hotkeys_shadow_root_attached', event => {
-	if (!(event instanceof CustomEvent))
-		return
 	// eslint-disable-next-line custom--no-jsdoc-cast/no-jsdoc-cast
-	let { shadow, host } = /** @type {{ host?: Element | null, shadow?: ShadowRoot | null }} */ (event)
+	let { detail: { shadow, host } } = /** @type {CustomEvent<{ host?: Element | null, shadow?: ShadowRoot | null }>} */ (event)
 	if (shadow) {
 		if (host && !host.shadowRoot) {
 			// TODO: rm log
@@ -246,12 +260,11 @@ let init = () => {
 	})
 
 	// Needs to happen early as this hooks into prototype in host page
-	observe_shadow_root_attachments()
+	observe_shadow_root_attachments(document, 'root document')
 
 	// console.time('init')
 	observe_root_recursively(document, 'root document')
 	// console.timeEnd('init')
-	update_current_video()
 
 	browser.storage.onChanged.addListener(changes => {
 		if (changes['enabled']) {
