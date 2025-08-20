@@ -66,6 +66,7 @@ export default [
 			'custom--no-jsdoc-cast/no-jsdoc-cast': 'error',
 			'custom--snake-case/snake-case': 'error',
 			'no-void': 'off',
+			'@typescript-eslint/no-misused-promises': 'off',
 		}
 	}
 ]

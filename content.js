@@ -230,12 +230,17 @@ window.addEventListener('video_hotkeys_shadow_root_attached', event => {
 	}
 })
 
-void browser.storage.sync.get(['enabled']).then(result => {
+void browser.storage.sync.get(['globally_enabled', 'disabled_hosts']).then(result => {
 	if (browser.runtime.lastError) {
 		log('Storage error:', browser.runtime.lastError)
 		extension_enabled = true
-	} else
-		extension_enabled = result['enabled'] !== false
+	} else {
+		let globally_enabled = result['globally_enabled'] !== false
+		let disabled_hosts_raw = result['disabled_hosts'] ?? []
+		let disabled_hosts = Array.isArray(disabled_hosts_raw) ? disabled_hosts_raw : []
+		let host = location.hostname
+		extension_enabled = globally_enabled && !disabled_hosts.includes(host)
+	}
 
 	log('Extension enabled:', extension_enabled)
 })
@@ -252,8 +257,19 @@ observe_root_recursively(document, 'root document')
 window.addEventListener('scroll', update_current_video_debounced, { passive: true })
 
 browser.storage.onChanged.addListener(changes => {
-	if (changes['enabled']) {
-		extension_enabled = Boolean(changes['enabled'].newValue)
-		log('Extension enabled toggled:', extension_enabled ? 'enabled' : 'disabled')
-	}
+	let recalc = false
+	if (changes['globally_enabled'])
+		recalc = true
+	if (changes['disabled_hosts'])
+		recalc = true
+	if (!recalc)
+		return
+	void browser.storage.sync.get(['globally_enabled', 'disabled_hosts']).then(result => {
+		let globally_enabled = result['globally_enabled'] !== false
+		let disabled_hosts_raw = result['disabled_hosts'] ?? []
+		let disabled_hosts = Array.isArray(disabled_hosts_raw) ? disabled_hosts_raw : []
+		let host = location.hostname
+		extension_enabled = globally_enabled && !disabled_hosts.includes(host)
+		log('Extension enabled recalculated:', extension_enabled ? 'enabled' : 'disabled')
+	})
 })

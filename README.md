@@ -34,9 +34,11 @@ This is the only browser extension of its kind that actually works *everywhere* 
 
 ## Configuration
 
-- Click the extension icon in your browser toolbar to:
-  - Toggle the extension on/off
-  - View all available keyboard shortcuts
+Open the popup (toolbar icon) to:
+
+- Toggle the global enable switch
+- Enable or disable the current host (per-site override)
+- View all available keyboard shortcuts
 
 ## Building, Development and Contributing
 
@@ -51,9 +53,11 @@ See [./CONTRIBUTING.md](./CONTRIBUTING.md)
 
 ## Extension Permissions
 
-- `activeTab` - Access current tab for video detection
-- `storage` - Save user settings (enabled/disabled)
-- No host permissions needed - works on any site with videos
+- `activeTab` - Temporary access to the active tab (script injection)
+- `tabs` - Needed to read the active tab's URL (hostname) to support per-site disabling
+- `storage` - Persist global and per-site settings
+
+No broad host permissions are requested; matching is via `<all_urls>` content script plus active tab context.
 
 
 ## License
