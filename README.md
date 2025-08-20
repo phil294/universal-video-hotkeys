@@ -2,7 +2,9 @@
 
 A browser extension that brings YouTube-style keyboard shortcuts to all video players across the web. Also enables double click-to-fullscreen.
 
-This is the only browser extension of its kind that actually works *everywhere* because it recursively observes iframes and shadow doms and also works in cross-origin frames.
+This is the only browser extension of its kind that actually works *everywhere* because it recursively observes iframes and shadow doms and also works in cross-origin frames by message passing.
+
+In fact, if you find any website where this extension does **not** work perfectly, please open an issue.
 
 ## Install
 
@@ -15,6 +17,8 @@ This is the only browser extension of its kind that actually works *everywhere* 
 - **Universal shortcuts**: Works on any website with HTML5 videos, including iframes and deeply nested shadow doms
 - **YouTube-compatible hotkeys**: Uses the same shortcuts you're already familiar with. Not configurable.
 - **Double-click fullscreen**: Click video twice to toggle fullscreen mode
+- **Native video controls**: Aggressively forces videos to show the native controls once you interact with them by hotkey. Additional controls by the website are not hidden.
+- **Disable per site** if necessary.
 - **Lightweight**: Pure JavaScript, no dependencies, no bundling
 
 ## Keyboard Shortcuts

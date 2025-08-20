@@ -174,7 +174,21 @@ let event_to_action = (/** @type {Event} */ event) => {
 	let playback_rate = active_source === 'local' ? current_local_video?.playbackRate : current_remote_video?.playback_rate
 	if (!video || !playback_rate)
 		return
-	return globalThis.interpret_shortcut(event, { playback_rate, can_volume: document.activeElement === video || document.fullscreenElement === video })
+	// determine whether volume shortcuts should be enabled: if active element or fullscreen element is inside the video bounds (within 5px tolerance).
+	// cannot compare for active/fullscreenElement directly because in several situations, this might be a wrapper div, or a sibling controls element etc. so this seems like the only solution.
+	let can_volume = false
+	if (active_source === 'local' && current_local_video) {
+		let video_rect = current_local_video.getBoundingClientRect()
+		/** @param {Element | null | undefined} el @returns {boolean} */
+		let within = el => {
+			if (!el)
+				return false
+			let box = el.getBoundingClientRect()
+			return box.top >= video_rect.top - 5 && box.left >= video_rect.left - 5 && box.right <= video_rect.right + 5 && box.bottom <= video_rect.bottom + 5
+		}
+		can_volume = within(document.activeElement) || within(document.fullscreenElement)
+	}
+	return globalThis.interpret_shortcut(event, { playback_rate, can_volume })
 }
 let handle_keydown = (/** @type {Event} */ event) => {
 	let action = event_to_action(event)

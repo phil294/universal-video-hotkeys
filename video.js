@@ -2,47 +2,70 @@
 /** @typedef {HTMLVideoElement & { webkitRequestFullscreen?: () => void; }} ExtendedVideoElement */
 
 /** @type {HTMLDivElement | null} */
-let speed_indicator = null
+let center_indicator = null
+let center_indicator_timeout = -1
+
+/**
+ * Host specific disable list for shortcuts / features.
+ * Reason: YouTube immediately exits fullscreen again when a different element than their expected player container is made fullscreen.
+ * If we capture the F key or double click first, we fullscreen the raw <video>, YouTube then cancels it, causing a flicker. Disabling lets native site logic run.
+ * Keys stored by KeyboardEvent.code; special sentinel 'DOUBLE_CLICK_FULLSCREEN' disables our injected double click handler.
+ * Extend this map if other sites conflict with their own fullscreen handling or need original shortcuts.
+ * @type {Record<string, Set<string>>}
+ */
+let host_disabled_actions = {
+	'www.youtube.com': new Set(['KeyF', 'DOUBLE_CLICK_FULLSCREEN']),
+	'm.youtube.com': new Set(['KeyF', 'DOUBLE_CLICK_FULLSCREEN'])
+}
+// expose for potential future reads
+globalThis.__uvh_host_disabled_actions = host_disabled_actions
 
 /** @param {unknown[]} args */
 let _log = (...args) => { console.debug('[UniversalVideoHotkeys]', ...args) }
 
-/** Create and show speed indicator overlay @param {number} speed */
-globalThis.show_speed_indicator = speed => {
-	if (speed_indicator)
-		speed_indicator.remove()
-
-	speed_indicator = document.createElement('div')
-	speed_indicator.textContent = `${speed.toFixed(2)}x`
-	speed_indicator.style.cssText = `
-		position: fixed;
-		top: 50%;
-		left: 50%;
-		transform: translate(-50%, -50%);
-		background: rgba(0, 0, 0, 0.8);
-		color: white;
-		padding: 8px 16px;
-		border-radius: 4px;
-		font-family: Arial, sans-serif;
-		font-size: 18px;
-		font-weight: bold;
-		z-index: 999999;
-		pointer-events: none;
-		user-select: none;
-	`
-
-	document.body.appendChild(speed_indicator)
-
-	setTimeout(() => {
-		if (speed_indicator) {
-			speed_indicator.remove()
-			speed_indicator = null
+/** Internal helper: show transient centered indicator (shared for speed + volume) @param {string} text */
+let show_center_indicator = text => {
+	if (!center_indicator) {
+		center_indicator = document.createElement('div')
+		center_indicator.style.cssText = `
+			position: fixed;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			background: rgba(0, 0, 0, 0.8);
+			color: #fff;
+			padding: 8px 14px;
+			border-radius: 4px;
+			font: 600 18px/1 system-ui, Arial, sans-serif;
+			z-index: 2147483647;
+			pointer-events: none;
+			user-select: none;
+			letter-spacing: .5px;
+			transition: opacity .15s ease;
+			opacity: 1;
+		`
+		document.documentElement.appendChild(center_indicator)
+	}
+	center_indicator.textContent = text
+	center_indicator.style.opacity = '1'
+	clearTimeout(center_indicator_timeout)
+	center_indicator_timeout = window.setTimeout(() => {
+		if (center_indicator) {
+			center_indicator.style.opacity = '0'
+			setTimeout(() => {
+				if (center_indicator) {
+					center_indicator.remove()
+					center_indicator = null
+				}
+			}, 180)
 		}
-	}, 1000)
+	}, 900)
 }
 
 /** Setup double-click fullscreen for video @param {HTMLVideoElement} video */
 globalThis.setup_double_click_fullscreen = video => {
+	if (host_disabled_actions[location.hostname]?.has('DOUBLE_CLICK_FULLSCREEN'))
+		return
 	video.removeEventListener('dblclick', handle_double_click)
 	video.addEventListener('dblclick', handle_double_click)
 }
@@ -64,6 +87,7 @@ globalThis.change_volume = (video, delta) => {
 	video.volume = new_volume
 	video.muted = false
 	_log(`Volume change: ${(old_volume * 100).toFixed(0)}% → ${(new_volume * 100).toFixed(0)}%`)
+	show_center_indicator(String(Math.round(new_volume * 100)) + '%')
 }
 
 /** Seek video by seconds @param {HTMLVideoElement} video @param {number} seconds */
@@ -90,7 +114,7 @@ globalThis.change_speed = (video, direction) => {
 		: Math.max(0.25, current_rate - 0.25)
 	video.playbackRate = new_rate
 	_log(`Speed change: ${current_rate.toFixed(2)}x → ${new_rate.toFixed(2)}x`)
-	globalThis.show_speed_indicator(new_rate)
+	show_center_indicator(`${new_rate.toFixed(2)}x`)
 }
 
 /** Toggle play/pause @param {HTMLVideoElement} video */
@@ -123,6 +147,8 @@ globalThis.toggle_fullscreen = video => {
  */
 globalThis.interpret_shortcut = (event, ctx) => {
 	if (event.altKey || event.ctrlKey || event.metaKey)
+		return null
+	if (host_disabled_actions[location.hostname]?.has(event.code))
 		return null
 	if (event.shiftKey) {
 		switch (event.code) {
@@ -161,4 +187,10 @@ globalThis.execute_action = (video, d) => {
 		case 'toggle_fullscreen': globalThis.toggle_fullscreen(video); break
 		case 'toggle_mute': video.muted = !video.muted; _log('Mute toggled:', video.muted ? 'muted' : 'unmuted'); break
 	}
+	video.controls = true
+	// yes
+	for (let t of [1, 11, 101, 1001])
+		setTimeout(() => {
+			video.controls = true
+		}, t)
 }
