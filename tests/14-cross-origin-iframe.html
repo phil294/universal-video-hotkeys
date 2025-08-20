@@ -1,0 +1,11 @@
+<title>Test 14 - Cross Origin Iframe With Video (Read-Only)</title>
+<p class="note">
+	The iframe below is cross-origin. The extension should <strong>not</strong> attempt to traverse into it or
+	throw errors. Keyboard shortcuts should continue to work for any same-origin videos (there are none here),
+	and this page should remain silent in the console except for expected logging.
+</p>
+<iframe controls width="600" height="400" src="https://archive.org/embed/BigBuckBunny_328"></iframe>
+
+<p class="note">
+	Manual check: Open the DevTools console. There should be no uncaught exceptions related to the iframe.
+</p>

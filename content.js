@@ -1,9 +1,6 @@
 /** @file Universal Video Hotkeys - Content Script */
 
-/** @typedef {EventTarget & { tagName?: string; isContentEditable?: boolean; }} ExtendedEventTarget */
-/** @typedef {object} VideoState @property {HTMLVideoElement} element */
-
-/** @type {VideoState | null} */
+/** @type {HTMLVideoElement | null} */
 let current_video = null
 /** @type {boolean} */
 let extension_enabled = true
@@ -68,13 +65,11 @@ let get_current_video = () => {
 
 	return in_viewport[0] ?? videos[0] ?? null
 }
-
-/** Update current video reference */
 let update_current_video = () => {
 	let video = get_current_video()
-	if (video && video !== current_video?.element) {
+	if (video && video !== current_video) {
 		log('Active video changed:', video.src || video.currentSrc || 'unknown source', video.src ? undefined : video)
-		current_video = { element: video }
+		current_video = video
 
 		if (always_enable_sound) {
 			video.muted = false
@@ -82,6 +77,11 @@ let update_current_video = () => {
 			log('Force sound: unmuted and volume set to 100%')
 		}
 	}
+}
+let update_current_video_debouncer = -1
+let update_current_video_debounced = () => {
+	clearTimeout(update_current_video_debouncer)
+	update_current_video_debouncer = window.setTimeout(update_current_video, 250)
 }
 
 /** Check if event target is an input element @param {Event} event @returns {boolean} */
@@ -96,21 +96,15 @@ let is_input_target = event => {
 
 /** Handle keyboard events @param {Event} event */
 let handle_keydown = event => {
-	if (!event_is_keyboard(event))
+	if (!extension_enabled || !current_video || !event_is_keyboard(event) || is_input_target(event))
 		return
 
-	if (!extension_enabled || !current_video)
-		return
-
-	if (is_input_target(event))
-		return
-
-	let video = current_video.element
-	let handled = globalThis.handle_shortcuts(event, video)
+	let handled = globalThis.handle_shortcuts(event, current_video)
 
 	if (handled) {
 		event.preventDefault()
 		event.stopPropagation()
+		update_current_video_debounced()
 	}
 }
 
@@ -124,26 +118,19 @@ function observe_root_recursively (/** @type {Document | ShadowRoot} */ root, /*
 
 	root.addEventListener('keydown', handle_keydown, true)
 
-	let should_update = false
 	let elements = root.querySelectorAll('*')
 	for (let element of elements)
 		if (handle_new_element(element, 'scan'))
-			should_update = true
-	if (should_update)
-		update_current_video()
+			update_current_video_debounced()
 
 	let observer = new MutationObserver(mutations => {
-		let should_update = false
 		for (let mutation of mutations)
 			if (mutation.type === 'childList')
 				for (let node of mutation.addedNodes)
 					if (node_is_element(node))
 						if (handle_new_element(node, 'mutation'))
-							should_update = true
-		if (should_update)
-			update_current_video()
+							update_current_video_debounced()
 	})
-
 	observer.observe(root, { childList: true, subtree: true })
 }
 
@@ -208,7 +195,7 @@ function observe_shadow_root_attachments (/** @type {Document} */ root, /** @typ
 			let original = Element.prototype.attachShadow
 			function dispatch(/** @type {Element} */ host, /** @type {ShadowRoot | null} */ shadow) {
 				try {
-					window.dispatchEvent(new CustomEvent('video_hotkeys_shadow_root_attached', {
+					window.top.dispatchEvent(new CustomEvent('video_hotkeys_shadow_root_attached', {
 						detail: { host, shadow }
 					}))
 				} catch (err) {
@@ -274,6 +261,8 @@ let init = () => {
 	// console.time('init')
 	observe_root_recursively(document, 'root document')
 	// console.timeEnd('init')
+
+	window.addEventListener('scroll', update_current_video_debounced, { passive: true })
 
 	browser.storage.onChanged.addListener(changes => {
 		if (changes['enabled']) {
