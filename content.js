@@ -12,6 +12,8 @@ let closed_shadow_root_by_host = new WeakMap()
 /** @param {unknown[]} args */
 let log = (...args) => { console.debug('[UniversalVideoHotkeys]', ...args) }
 
+let is_same_origin_iframe = (() => { try { return window.top !== window && window.top?.location.origin === window.location.origin } catch (e) { return false }})() // eslint-disable-line
+
 // Pure instanceofs can fail across iframes / Firefox Xrays. The below helper functions are cross-realm safe.
 /** @param {Element} el @returns {el is HTMLVideoElement} */
 let element_is_video = el =>
@@ -246,30 +248,28 @@ void browser.storage.sync.get(['globally_enabled', 'disabled_hosts']).then(resul
 })
 
 log('Init')
+if (is_same_origin_iframe)
+	log('Skipping init in same-origin iframe (root handles videos)')
+else {
+	// Needs to happen early as this hooks into prototype in host page
+	observe_shadow_root_attachments(document, 'root document')
 
-// Needs to happen early as this hooks into prototype in host page
-observe_shadow_root_attachments(document, 'root document')
+	// console.time('init')
+	observe_root_recursively(document, 'root document')
+	// console.timeEnd('init')
 
-// console.time('init')
-observe_root_recursively(document, 'root document')
-// console.timeEnd('init')
+	window.addEventListener('scroll', update_current_video_debounced, { passive: true })
 
-window.addEventListener('scroll', update_current_video_debounced, { passive: true })
-
-browser.storage.onChanged.addListener(changes => {
-	let recalc = false
-	if (changes['globally_enabled'])
-		recalc = true
-	if (changes['disabled_hosts'])
-		recalc = true
-	if (!recalc)
-		return
-	void browser.storage.sync.get(['globally_enabled', 'disabled_hosts']).then(result => {
-		let globally_enabled = result['globally_enabled'] !== false
-		let disabled_hosts_raw = result['disabled_hosts'] ?? []
-		let disabled_hosts = Array.isArray(disabled_hosts_raw) ? disabled_hosts_raw : []
-		let host = location.hostname
-		extension_enabled = globally_enabled && !disabled_hosts.includes(host)
-		log('Extension enabled recalculated:', extension_enabled ? 'enabled' : 'disabled')
+	browser.storage.onChanged.addListener(changes => {
+		if (!changes['globally_enabled'] && !changes['disabled_hosts'])
+			return
+		void browser.storage.sync.get(['globally_enabled', 'disabled_hosts']).then(result => {
+			let globally_enabled = result['globally_enabled'] !== false
+			let disabled_hosts_raw = result['disabled_hosts'] ?? []
+			let disabled_hosts = Array.isArray(disabled_hosts_raw) ? disabled_hosts_raw : []
+			let host = location.hostname
+			extension_enabled = globally_enabled && !disabled_hosts.includes(host)
+			log('Extension enabled recalculated:', extension_enabled ? 'enabled' : 'disabled')
+		})
 	})
-})
+}
