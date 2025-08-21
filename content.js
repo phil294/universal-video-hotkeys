@@ -74,9 +74,9 @@ let is_remote_video_visible = remote => {
 }
 function get_best_remote_video () {
 	let list = Array.from(remote_videos.values())
-	let playing = list.filter(v => v.playing && is_remote_video_visible(v))
-	if (playing[0])
-		return playing[0]
+	for (let v of list)
+		if (v.playing)
+			return v
 	for (let v of list)
 		if (is_remote_video_visible(v))
 			return v
@@ -105,11 +105,11 @@ let event_target_is_html = target =>
 let event_is_keyboard = event =>
 	'key' in event
 
-/** choose first playing, else first visible with 50px margin */
+// choose first playing (even if off-screen), else first visible, else first encountered
 let get_best_local_video = () => {
 	let vids = Array.from(known_videos)
 	for (let v of vids)
-		if (!v.paused && !v.ended && is_local_video_visible(v))
+		if (!v.paused && !v.ended)
 			return v
 	for (let v of vids)
 		if (is_local_video_visible(v))
