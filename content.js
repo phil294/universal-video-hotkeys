@@ -101,16 +101,19 @@ let is_shadow_root_loose = x => !!x && typeof x === 'object' && 'host' in x && '
 /** @param {Node} node @returns {node is Element} */
 let node_is_element = node =>
 	node.nodeType === Node.ELEMENT_NODE
-/** @param {EventTarget} target @returns {target is HTMLElement} */
-let event_target_is_html = target =>
+/** @param {EventTarget | Element} target @returns {target is HTMLElement} */
+let is_html_element = target =>
 	'inert' in target && 'innerText' in target && 'autocorrect' in target
 /** @param {Event} event @returns {event is KeyboardEvent} */
 let event_is_keyboard = event =>
 	'key' in event
-/** @param {Element | null | undefined} el @returns {boolean} */
-let element_is_input_target = el => {
-	if (!el || !event_target_is_html(el))
+/** @param {EventTarget | Element | null | undefined} given_el @returns {boolean} */
+let element_is_input_target = given_el => {
+	if (!given_el || !is_html_element(given_el))
 		return false
+	let el = given_el
+	while ('shadowRoot' in el && is_shadow_root_loose(el.shadowRoot) && el.shadowRoot.activeElement && is_html_element(el.shadowRoot.activeElement))
+		el = el.shadowRoot.activeElement
 	if (['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))
 		return true
 	return el.isContentEditable
@@ -118,7 +121,7 @@ let element_is_input_target = el => {
 
 // Track last clicked element for volume shortcut eligibility (overlays without focusability)
 document.addEventListener('pointerdown', event => {
-	if (!event.target || !event_target_is_html(event.target))
+	if (!event.target || !is_html_element(event.target))
 		return
 	last_clicked_element = event.target
 }, true)
@@ -175,18 +178,8 @@ let update_current_video_debounced = () => {
 /** @type {Array<{ data: StateMessage, source: Window }> } */
 let pending_remote_messages = []
 
-/** Check if event target is an input element @param {Event} event @returns {boolean} */
-let is_input_target = event => {
-	let target = event.target
-	if (!target || !event_target_is_html(target))
-		return false
-	if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
-		return true
-	return target.isContentEditable
-}
-
 let event_to_action = (/** @type {Event} */ event) => {
-	if (!extension_enabled || !event_is_keyboard(event) || is_input_target(event))
+	if (!extension_enabled || !event_is_keyboard(event) || element_is_input_target(event.target))
 		return null
 	if (event.altKey || event.ctrlKey || event.metaKey)
 		return null
