@@ -36,19 +36,10 @@ let log = (...args) => { console.debug(`[UniversalVideoHotkeys:${document_id}:${
 function find_iframe_by_window (/** @type {Window | null} */ win) {
 	if (!win)
 		return null
-	let roots = new Set(observed_roots)
-	roots.add(document)
-	for (let root of roots) {
-		// root can be Document or ShadowRoot
-		if (!('querySelectorAll' in root))
-			continue
-		for (let iframe of root.querySelectorAll('iframe'))
-			try {
-				if (iframe.contentWindow === win)
-					return iframe
-			} catch {}
-	}
-	return null
+	return [...observed_roots]
+		.filter(root => ('querySelectorAll' in root))
+		.flatMap(root => [...root.querySelectorAll('iframe')])
+		.find(iframe => iframe.contentWindow === win)
 }
 
 /** @param {RemoteVideo} rv */
@@ -301,14 +292,12 @@ function handle_new_element (/** @type {Element} */ element, /** @type {'scan' |
 /** injects a page-world hook to catch shadow root creations. necessary there's no api for that and mutation observer also isn't notified. */
 function observe_shadow_root_attachments (/** @type {Document | Window} */ root, /** @type {string} */ origin) {
 	root.addEventListener('video_hotkeys_shadow_root_attached', event => {
-		log('rcv', event)
 		let target = event.target
 		if (!target || typeof target !== 'object' || !('shadowRoot' in target) || !is_shadow_root_loose(target.shadowRoot))
 			return
 		observe_root_recursively(target.shadowRoot, 'shadow attach hook shadow open ' + origin)
 	}, false)
 }
-observe_shadow_root_attachments(window, 'root window')
 
 void browser.storage.sync.get(['globally_enabled', 'disabled_hosts']).then(result => {
 	if (browser.runtime.lastError) {
@@ -321,7 +310,6 @@ void browser.storage.sync.get(['globally_enabled', 'disabled_hosts']).then(resul
 		let host = location.hostname
 		extension_enabled = globally_enabled && !disabled_hosts.includes(host)
 	}
-
 	log('Extension enabled:', extension_enabled)
 })
 
