@@ -15,6 +15,9 @@ let is_top_frame = window.top === window
 let is_cross_origin_iframe = !is_top_frame && !is_same_origin_iframe
 let allow_keyboard_listeners = true // is_top_frame // true because they only trigger when frame is focused anyway in which case the root shortcuts wouldn't work
 
+/** @type {HTMLElement | null} */
+let last_clicked_element = null
+
 /** @type {HTMLVideoElement | null} */
 let current_local_video = null
 /** Remote coordination */
@@ -104,6 +107,21 @@ let event_target_is_html = target =>
 /** @param {Event} event @returns {event is KeyboardEvent} */
 let event_is_keyboard = event =>
 	'key' in event
+/** @param {Element | null | undefined} el @returns {boolean} */
+let element_is_input_target = el => {
+	if (!el || !event_target_is_html(el))
+		return false
+	if (['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))
+		return true
+	return el.isContentEditable
+}
+
+// Track last clicked element for volume shortcut eligibility (overlays without focusability)
+document.addEventListener('pointerdown', event => {
+	if (!event.target || !event_target_is_html(event.target))
+		return
+	last_clicked_element = event.target
+}, true)
 
 // choose first playing (even if off-screen), else first visible, else first encountered
 let get_best_local_video = () => {
@@ -194,7 +212,8 @@ let event_to_action = (/** @type {Event} */ event) => {
 					// ...wrapper with horizontal padding such as resolution downscaler (e.g. yt/embed/)
 					el.contains(current_local_video))
 		}
-		can_volume = within(document.activeElement) || within(document.fullscreenElement)
+		can_volume = within(document.activeElement) || within(document.fullscreenElement) ||
+			(!element_is_input_target(last_clicked_element) && within(last_clicked_element))
 	}
 	return globalThis.interpret_shortcut(event, { playback_rate, can_volume })
 }
