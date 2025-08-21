@@ -107,7 +107,7 @@ let node_is_element = node =>
 	node.nodeType === Node.ELEMENT_NODE
 /** @param {EventTarget | Element} target @returns {target is HTMLElement} */
 let is_html_element = target =>
-	'inert' in target && 'innerText' in target && 'autocorrect' in target
+	'inert' in target && 'innerText' in target // not with all custom elements: && 'autocorrect' in target
 /** @param {Event} event @returns {event is KeyboardEvent} */
 let event_is_keyboard = event =>
 	'key' in event
