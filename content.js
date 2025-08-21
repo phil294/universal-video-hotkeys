@@ -241,8 +241,9 @@ function observe_root_recursively (/** @type {Document | ShadowRoot} */ root, /*
 			if (mutation.type === 'childList')
 				for (let node of mutation.addedNodes)
 					if (node_is_element(node))
-						if (handle_new_element(node, 'mutation'))
-							update_current_video_debounced()
+						for (let element of [node, ...node.querySelectorAll('*')])
+							if (handle_new_element(element, 'mutation'))
+								update_current_video_debounced()
 	})
 	observer.observe(root, { childList: true, subtree: true })
 }
@@ -322,18 +323,20 @@ void browser.storage.sync.get(['globally_enabled', 'disabled_hosts']).then(resul
 	log('Extension enabled:', extension_enabled)
 })
 
-log('Init')
 if (is_same_origin_iframe)
 	log('Skipping init in same-origin iframe (root handles videos)')
 else {
-	// Needs to happen early as this hooks into prototype in host page
+	// Needs to happen early as listens to document-start hook in host page
 	observe_shadow_root_attachments(document, 'root document')
 
-	// console.time('init')
-	observe_root_recursively(document, 'root document')
-	// console.timeEnd('init')
-
-	window.addEventListener('scroll', update_current_video_debounced, { passive: true })
+	let start_observing = () => {
+		observe_root_recursively(document, 'root document')
+		window.addEventListener('scroll', update_current_video_debounced, { passive: true })
+	}
+	if (document.readyState === 'loading')
+		document.addEventListener('DOMContentLoaded', start_observing, { once: true })
+	else
+		start_observing()
 
 	browser.storage.onChanged.addListener(changes => {
 		if (!changes['globally_enabled'] && !changes['disabled_hosts'])

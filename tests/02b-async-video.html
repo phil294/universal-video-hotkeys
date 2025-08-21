@@ -1,0 +1,15 @@
+<title>02b - Delayed Video Creation after 0ms</title>
+<p>Video added after 0 ms</p>
+
+<script>
+setTimeout(() => {
+	let video = document.createElement('video')
+	video.src = 'test-video.mp4'
+	video.controls = true
+	video.width = 600
+	video.height = 400
+	document.body.appendChild(video)
+}, 0)
+</script>
+
+<p>dom footer</p>

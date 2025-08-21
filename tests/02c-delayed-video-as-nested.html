@@ -1,0 +1,15 @@
+<title>02c - Delayed Video Creation as nested</title>
+<p>Video added after 3 seconds. Wait for it to appear, then test hotkeys.</p>
+
+<script>
+setTimeout(() => {
+	let wrapper = document.createElement('div')
+	let video = document.createElement('video')
+	video.src = 'test-video.mp4'
+	video.controls = true
+	video.width = 600
+	video.height = 400
+	wrapper.appendChild(video)
+	document.body.appendChild(wrapper)
+}, 3000)
+</script>
