@@ -34,7 +34,11 @@ if (is_cross_origin_iframe)
 	window.top?.postMessage({ uvh: true, type: 'frame_init', frame_id: document_id }, '*')
 
 /** @param {unknown[]} args */
-let log = (...args) => { console.debug(`[UniversalVideoHotkeys:${document_id}:${new Date().toLocaleTimeString()}]`, ...args) }
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+let log = (...args) => {
+	// see also video.js
+	// console.debug(`[UniversalVideoHotkeys:${document_id}:${new Date().toLocaleTimeString()}]`, ...args)
+}
 
 function find_iframe_by_window (/** @type {Window | null} */ win) {
 	if (!win)
@@ -323,7 +327,7 @@ function observe_shadow_root_attachments (/** @type {Document | Window} */ root,
 
 void browser.storage.sync.get(['globally_enabled', 'disabled_hosts']).then(result => {
 	if (browser.runtime.lastError) {
-		log('Storage error:', browser.runtime.lastError)
+		console.warn('[UniversalVideoHotkeys]', 'Storage error:', browser.runtime.lastError)
 		extension_enabled = true
 	} else {
 		let globally_enabled = result['globally_enabled'] !== false

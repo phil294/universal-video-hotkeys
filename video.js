@@ -27,7 +27,11 @@ let host_disabled_actions = {
 globalThis.__uvh_host_disabled_actions = host_disabled_actions
 
 /** @param {unknown[]} args */
-let _log = (...args) => { console.debug('[UniversalVideoHotkeys]', ...args) }
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+let _log = (...args) => {
+	// see also content.js
+	// console.debug('[UniversalVideoHotkeys]', ...args)
+}
 
 /** Internal helper: show transient centered indicator (shared for speed + volume) @param {string} text */
 let show_center_indicator = text => {
@@ -134,7 +138,7 @@ globalThis.toggle_play_pause = video => {
 				msg = msg?.includes('interact with the document first')
 					? 'Video playback was blocked by your browser security policy. Please first click on the video once manually.'
 					: 'Video playback failed. Unknown error: ' + String(error)
-				_log(msg, error)
+				console.warn('[UniversalVideoHotkeys]', msg, error)
 				show_center_indicator(msg)
 			})
 	} else {
@@ -156,7 +160,7 @@ globalThis.toggle_fullscreen = video => {
 				msg = msg?.includes('request denied')
 					? 'Fullscreen request was blocked by your browser security policy. Please first click on the video once manually.'
 					: 'Fullscreen request failed. Unknown error: ' + String(error)
-				_log(msg, error)
+				console.warn('[UniversalVideoHotkeys]', msg, error)
 				show_center_indicator(msg)
 			})
 	}
