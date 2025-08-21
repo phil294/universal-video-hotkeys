@@ -5,6 +5,12 @@
 let center_indicator = null
 let center_indicator_timeout = -1
 
+let unknown_to_error_message = (/** @type {unknown} */ error) => {
+	return typeof error === 'object' && error != null && ('message' in error) && typeof error.message === 'string'
+		? error.message
+		: null
+}
+
 /**
  * Host specific disable list for shortcuts / features.
  * Reason: YouTube immediately exits fullscreen again when a different element than their expected player container is made fullscreen.
@@ -124,10 +130,9 @@ globalThis.toggle_play_pause = video => {
 		_log('Play')
 		video.play()
 			.catch((/** @type {unknown} */ error) => {
-				let msg = typeof error === 'object' && error != null && ('message' in error) && typeof error.message === 'string'
-					? error.message.includes('interact with the document first')
-						? 'Video playback was blocked by your browser security policy. Please first click on the video once manually.'
-						: 'Video playback failed. Unknown error: ' + error.message
+				let msg = unknown_to_error_message(error)
+				msg = msg?.includes('interact with the document first')
+					? 'Video playback was blocked by your browser security policy. Please first click on the video once manually.'
 					: 'Video playback failed. Unknown error: ' + String(error)
 				_log(msg, error)
 				show_center_indicator(msg)
@@ -141,11 +146,19 @@ globalThis.toggle_play_pause = video => {
 /** Toggle fullscreen @param {HTMLVideoElement} video */
 globalThis.toggle_fullscreen = video => {
 	if (document.fullscreenElement) {
-		void document.exitFullscreen()
 		_log('Exit fullscreen')
+		void document.exitFullscreen()
 	} else {
-		void video.requestFullscreen()
 		_log('Enter fullscreen')
+		void video.requestFullscreen()
+			.catch((/** @type {unknown} */ error) => {
+				let msg = unknown_to_error_message(error)
+				msg = msg?.includes('request denied')
+					? 'Fullscreen request was blocked by your browser security policy. Please first click on the video once manually.'
+					: 'Fullscreen request failed. Unknown error: ' + String(error)
+				_log(msg, error)
+				show_center_indicator(msg)
+			})
 	}
 }
 
