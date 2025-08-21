@@ -37,7 +37,10 @@ function find_iframe_by_window (/** @type {Window | null} */ win) {
 	if (!win)
 		return null
 	return [...observed_roots]
-		.filter(root => ('querySelectorAll' in root))
+		.filter(root =>
+			// Firefox `TypeError: can't access dead object`
+			(() => { try { return !!root.constructor.name } catch { return false } })() &&
+			('querySelectorAll' in root))
 		.flatMap(root => [...root.querySelectorAll('iframe')])
 		.find(iframe => iframe.contentWindow === win)
 }
@@ -149,6 +152,10 @@ let update_current_video_debounced = () => {
 	clearTimeout(update_current_video_debouncer)
 	update_current_video_debouncer = window.setTimeout(update_current_video, 250)
 }
+
+/** Queue remote state messages that arrive before their iframe is discoverable. */
+/** @type {Array<{ data: StateMessage, source: Window }> } */
+let pending_remote_messages = []
 
 /** Check if event target is an input element @param {Event} event @returns {boolean} */
 let is_input_target = event => {
@@ -277,12 +284,14 @@ function handle_new_element (/** @type {Element} */ element, /** @type {'scan' |
 		if (element.contentDocument) {
 			observe_root_recursively(element.contentDocument, origin + ': iframe ' + element.src)
 			observe_shadow_root_attachments(element.contentDocument, origin + ': iframe ' + element.src)
+			process_pending_remote_messages('iframe ' + element.src)
 		}
 		// Load listener to catch delayed availability or navigations
 		element.addEventListener('load', () => {
 			if (element.contentDocument) {
 				observe_root_recursively(element.contentDocument, origin + ': iframe onload ' + element.src)
 				observe_shadow_root_attachments(element.contentDocument, origin + ': iframe onload ' + element.src)
+				process_pending_remote_messages('iframe onload ' + element.src)
 			}
 		}, { once: false })
 	}
@@ -382,33 +391,47 @@ if (is_top_frame)
 	window.addEventListener('message', event => {
 		if (!is_state_message(event.data) || !event.data.uvh)
 			return
-		if (event.data.type === 'frame_init')
-			return
-		if (event.data.type !== 'video_added' && event.data.type !== 'state')
-			return
-		if (typeof event.data.frame_id !== 'string' || typeof event.data.video_id !== 'number')
-			return
 		let win_source = event.source
 		let win = (win_source && typeof win_source === 'object' && 'closed' in win_source) ? win_source : null
 		if (!win)
 			return
-		let iframe = find_iframe_by_window(win)
-		if (!iframe)
-			return
-		let key = event.data.frame_id + ':' + String(event.data.video_id)
+		pending_remote_messages.push({ data: event.data, source: win })
+		process_pending_remote_messages('top frame message')
+	})
+let process_pending_remote_messages = (/** @type {string} */ origin) => {
+	if (!pending_remote_messages.length)
+		return
+	let remaining = []
+	for (let item of pending_remote_messages) {
+		let data = item.data
+		if (data.type === 'frame_init')
+			continue
+		if (data.type !== 'video_added' && data.type !== 'state')
+			continue
+		if (!data.frame_id || !data.video_id)
+			continue
+		let iframe = find_iframe_by_window(item.source)
+		if (!iframe) {
+			log('Could not (yet) find iframe for remote video update:', data.type, 'for frame', data.frame_id, 'video', data.video_id, 'source', item.source, 'origin:', origin)
+			remaining.push(item)
+			continue
+		}
+		let key = data.frame_id + ':' + String(data.video_id)
 		let existing = remote_videos.get(key)
-		log('Received remote video update:', event.data.type, 'for frame', event.data.frame_id, 'video', event.data.video_id, 'iframe', iframe.src || iframe.srcdoc || iframe.src || iframe, 'already existing', !!existing)
-		let rect = event.data.rect && typeof event.data.rect === 'object' ? event.data.rect : { top: 0, left: 0, width: 0, height: 0 }
+		log('Processing received remote video update:', data.type, 'for frame', data.frame_id, 'video', data.video_id, 'iframe', iframe.src || iframe.srcdoc || iframe.src || iframe, 'already existing', !!existing, 'origin:', origin)
+		let rect = data.rect && typeof data.rect === 'object' ? data.rect : { top: 0, left: 0, width: 0, height: 0 }
 		if (!existing)
-			remote_videos.set(key, { frame_id: event.data.frame_id, video_id: event.data.video_id, iframe, rect, playing: !!event.data.playing, paused: !!event.data.paused, duration: event.data.duration ?? 0, playback_rate: event.data.playback_rate ?? 1, volume: event.data.volume ?? 0, muted: !!event.data.muted })
+			remote_videos.set(key, { frame_id: data.frame_id, video_id: data.video_id, iframe, rect, playing: !!data.playing, paused: !!data.paused, duration: data.duration ?? 0, playback_rate: data.playback_rate ?? 1, volume: data.volume ?? 0, muted: !!data.muted })
 		else {
 			existing.rect = rect
-			existing.playing = !!event.data.playing
-			existing.paused = !!event.data.paused
-			existing.duration = event.data.duration ?? existing.duration
-			existing.playback_rate = event.data.playback_rate ?? existing.playback_rate
-			existing.volume = event.data.volume ?? existing.volume
-			existing.muted = !!event.data.muted
+			existing.playing = !!data.playing
+			existing.paused = !!data.paused
+			existing.duration = data.duration ?? existing.duration
+			existing.playback_rate = data.playback_rate ?? existing.playback_rate
+			existing.volume = data.volume ?? existing.volume
+			existing.muted = !!data.muted
 		}
-		update_current_video_debounced()
-	})
+	}
+	pending_remote_messages = remaining
+	update_current_video_debounced()
+}
