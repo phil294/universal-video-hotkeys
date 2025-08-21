@@ -9,7 +9,7 @@ In fact, if you find any website where this extension does **not** work perfectl
 ## Install
 
 - Firefox: https://addons.mozilla.org/en-US/firefox/addon/universal-video-hotkeys/
-- Chrome: tbd
+- Chrome: https://chromewebstore.google.com/detail/phil294/cbakmdlegmojdlnfbnghhmhpbfjbldcp
 
 ## Features
 
