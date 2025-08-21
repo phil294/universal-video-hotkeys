@@ -18,7 +18,7 @@ In fact, if you find any website where this extension does **not** work perfectl
 - **YouTube-compatible hotkeys**: Uses the same shortcuts you're already familiar with. Not configurable.
 - **Double-click fullscreen**: Click video twice to toggle fullscreen mode
 - **Native video controls**: Aggressively forces videos to show the native controls once you interact with them by hotkey. Additional controls by the website are not hidden.
-- **Disable per site** if necessary.
+- **Disable per site** if necessary
 - **Lightweight**: Pure JavaScript, no dependencies, no bundling
 
 ## Keyboard Shortcuts
@@ -50,9 +50,7 @@ See [./CONTRIBUTING.md](./CONTRIBUTING.md)
 
 ## Limitations
 
-- Only works with standard HTML5 video elements
-- Some sites with heavily customized players (Netflix, etc.) may have limited compatibility
-- Shortcuts are disabled when typing in input fields
+- Only works with standard HTML5 video elements. This amounts to pretty much all of them, though.
 - While optimized for performance, it adds a small overhead
 
 ## Extension Permissions
@@ -62,7 +60,6 @@ See [./CONTRIBUTING.md](./CONTRIBUTING.md)
 - `storage` - Persist global and per-site settings
 
 No broad host permissions are requested; matching is via `<all_urls>` content script plus active tab context.
-
 
 ## License
 
