@@ -4,7 +4,7 @@ set -e
 npm run dev
 rm -rf dist*
 mkdir dist
-cp -r manifest.json icon*.png {content,popup}.js popup.html dist
+cp -r manifest.json icon*.png {content,popup,video,shadow-hook}.js popup.html dist
 
 # for FF AMO
 pushd dist
