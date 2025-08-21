@@ -286,7 +286,8 @@ function handle_new_element (/** @type {Element} */ element, /** @type {'scan' |
 		else if (element.tagName.includes('-')) {
 			// unresolved custom element (no shadow yet). shouldn't be necessary bc attach hook.
 			log(origin + ': Waiting for custom component without shadowRoot:', element.tagName)
-			void customElements.whenDefined(element.tagName.toLowerCase()).then(() => {
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+			void window.customElements?.whenDefined(element.tagName.toLowerCase()).then(() => {
 				if (!element.isConnected)
 					return
 				let late_closed = closed_shadow_root_by_host.get(element)
